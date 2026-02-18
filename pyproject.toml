@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "medservice-backend"
+version = "1.0.0"
+description = "MedService Feedback API - Backend for medical clinic review management"
+authors = ["MedService Team <team@medservice.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+# Core Framework
+fastapi = "^0.115.2"
+uvicorn = {extras = ["standard"], version = "^0.31.1"}
+python-multipart = "^0.0.9"
+
+# Database & ORM
+sqlalchemy = "^2.0.35"
+psycopg2-binary = "^2.9.9"
+alembic = "^1.13.2"
+
+# Authentication & Security
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+pydantic = {extras = ["email"], version = "^2.9.2"}
+pydantic-settings = "^2.5.2"
+
+# Configuration & Utils
+python-dotenv = "^1.0.1"
+python-dateutil = "^2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+httpx = "^0.27.2"
+
+# Code Quality
+black = "^24.10.0"
+ruff = "^0.8.0"
+mypy = "^1.11.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
