@@ -3,10 +3,11 @@ Pydantic schemas for complaints.
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+
+from app.schemas.common import APIModel
 
 
-class ComplaintResponse(BaseModel):
+class ComplaintResponse(APIModel):
     """Schema for complaint response."""
 
     id: int
@@ -14,24 +15,21 @@ class ComplaintResponse(BaseModel):
     branch_name: str | None = None  # Joined from Branch
     client_name: str | None
     client_phone: str | None
-    rating: float
+    rating: int
     text: str
     intercepted: bool
     resolved: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
 
-
-class ComplaintsListResponse(BaseModel):
+class ComplaintsListResponse(APIModel):
     """Schema for complaints list response."""
 
     complaints: list[ComplaintResponse]
     total: int
 
 
-class ComplaintUpdateRequest(BaseModel):
+class ComplaintUpdateRequest(APIModel):
     """Schema for updating complaint (mark as resolved)."""
 
     resolved: bool

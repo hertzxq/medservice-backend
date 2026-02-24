@@ -2,10 +2,10 @@
 Pydantic schemas for branches.
 """
 
-from pydantic import BaseModel
+from app.schemas.common import APIModel
 
 
-class BranchResponse(BaseModel):
+class BranchResponse(APIModel):
     """Schema for branch response."""
 
     id: int
@@ -16,11 +16,8 @@ class BranchResponse(BaseModel):
     avg_rating: float
     nps_score: int
 
-    class Config:
-        from_attributes = True
 
-
-class BranchesListResponse(BaseModel):
+class BranchesListResponse(APIModel):
     """Schema for branches list response."""
 
     branches: list[BranchResponse]

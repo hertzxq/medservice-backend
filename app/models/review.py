@@ -3,7 +3,7 @@ Review model for published customer reviews.
 """
 
 import enum
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
+from sqlalchemy import CheckConstraint, Column, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -30,7 +30,7 @@ class Review(Base):
         branch_id: Foreign key к филиалу
         reviewer_name: Имя клиента (optional)
         reviewer_phone: Телефон клиента (optional)
-        rating: Оценка от 1.0 до 5.0
+        rating: Целочисленная оценка (2..5)
         text: Текст отзыва (optional)
         platform: Платформа отзыва (enum)
         external_url: Ссылка на отзыв (optional)
@@ -43,6 +43,9 @@ class Review(Base):
     """
 
     __tablename__ = "reviews"
+    __table_args__ = (
+        CheckConstraint("rating IN (2, 3, 4, 5)", name="ck_reviews_rating_allowed_values"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False, index=True)
@@ -52,15 +55,15 @@ class Review(Base):
     reviewer_phone = Column(String, nullable=True)
 
     # Review content
-    rating = Column(Float, nullable=False)  # 1.0 - 5.0
+    rating = Column(Integer, nullable=False)  # 2 - 5
     text = Column(String, nullable=True)
-    platform = Column(Enum(PlatformEnum), nullable=False)
+    platform = Column(Enum(PlatformEnum), nullable=False, index=True)
 
     # External link
     external_url = Column(String, nullable=True)
 
     # Timestamps
-    published_at = Column(DateTime(timezone=True), nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -23,17 +23,20 @@ def seed_database():
     print("🌱 Seeding database...")
 
     # 1. Создать admin пользователя
+    # ❗ ВНИМАНИЕ: Смените пароль перед использованием в production!
+    default_password = "MedSvc!Adm1n_2024"
     admin = User(
         email="admin@medservice.com",
         username="admin",
-        hashed_password=get_password_hash("password123"),
+        hashed_password=get_password_hash(default_password),
         full_name="Сергей П.",
         is_active=True,
         is_superuser=True,
     )
     db.add(admin)
     db.commit()
-    print("✅ Admin user created (username: admin, password: password123)")
+    print(f"✅ Admin user created (username: admin, password: {default_password})")
+    print("⚠️  ОБЯЗАТЕЛЬНО смените пароль для production!")
 
     # 2. Создать 5 филиалов (как в frontend mock)
     branches_data = [
@@ -89,16 +92,20 @@ def seed_database():
     for branch in branches:
         review_count = random.randint(10, 20)
         for i in range(review_count):
-            # Рейтинг зависит от avg_rating филиала
-            if branch.avg_rating > 3:
-                rating = random.uniform(3.0, 5.0)
+            # Рейтинг зависит от avg_rating филиала (только целые 2..5)
+            if branch.avg_rating >= 4.5:
+                rating = random.choice([4, 5])
+            elif branch.avg_rating >= 3.5:
+                rating = random.choice([3, 4, 5])
+            elif branch.avg_rating >= 2.5:
+                rating = random.choice([2, 3, 4])
             else:
-                rating = random.uniform(1.0, 3.5)
+                rating = random.choice([2, 3])
 
             review = Review(
                 branch_id=branch.id,
                 reviewer_name=f"Клиент {i + 1}",
-                rating=round(rating, 1),
+                rating=rating,
                 text=f"Тестовый отзыв #{i + 1} для {branch.name[:30]}...",
                 platform=random.choice(platforms),
                 published_at=datetime.utcnow() - timedelta(days=random.randint(1, 90)),
@@ -116,7 +123,7 @@ def seed_database():
                 branch_id=branch.id,
                 client_name=f"Недовольный клиент {i + 1}",
                 client_phone=f"+7 (9XX) XXX-XX-{i:02d}",
-                rating=round(random.uniform(1.0, 2.5), 1),
+                rating=random.choice([2, 3]),
                 text=f"Тестовая жалоба #{i + 1}: долго ждал приема",
                 intercepted=True,
                 resolved=random.choice([True, False]),
@@ -146,7 +153,7 @@ def seed_database():
 
     db.close()
     print("\n🎉 Database seeding completed!")
-    print("👤 Login credentials: username=admin, password=password123")
+    print(f"👤 Login credentials: username=admin, password={default_password}")
 
 
 if __name__ == "__main__":

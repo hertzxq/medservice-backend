@@ -78,3 +78,6 @@ Thumbs.db
 
 # Poetry
 # НЕ игнорируем poetry.lock - его нужно коммитить!
+
+# Local audit notes
+BUGS.MD

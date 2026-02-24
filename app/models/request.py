@@ -3,7 +3,7 @@ Request model for feedback request tracking.
 """
 
 import enum
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -47,6 +47,16 @@ class Request(Base):
     """
 
     __tablename__ = "requests"
+    __table_args__ = (
+        CheckConstraint(
+            "NOT (status = 'published' AND published_at IS NULL)",
+            name="ck_requests_published_requires_published_at",
+        ),
+        CheckConstraint(
+            "NOT (review_id IS NOT NULL AND complaint_id IS NOT NULL)",
+            name="ck_requests_review_or_complaint_not_both",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False, index=True)
@@ -57,15 +67,15 @@ class Request(Base):
     client_email = Column(String, nullable=True)
 
     # Request tracking
-    status = Column(Enum(RequestStatusEnum), default=RequestStatusEnum.SENT, nullable=False)
-    request_link = Column(String, nullable=True)  # Уникальная ссылка для трекинга
+    status = Column(Enum(RequestStatusEnum), default=RequestStatusEnum.SENT, nullable=False, index=True)
+    request_link = Column(String, nullable=True, unique=True)  # Уникальная ссылка для трекинга
 
     # Связь с результатом
     review_id = Column(Integer, ForeignKey("reviews.id"), nullable=True)
     complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=True)
 
     # Timestamps
-    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    sent_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     opened_at = Column(DateTime(timezone=True), nullable=True)
     rated_at = Column(DateTime(timezone=True), nullable=True)
     published_at = Column(DateTime(timezone=True), nullable=True)

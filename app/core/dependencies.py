@@ -42,8 +42,16 @@ async def get_current_user(
             detail="Недействительный токен",
         )
 
-    user_id = payload.get("sub")
-    if not user_id:
+    user_id_raw = payload.get("sub")
+    if user_id_raw is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный токен",
+        )
+
+    try:
+        user_id = int(user_id_raw)
+    except (TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Недействительный токен",

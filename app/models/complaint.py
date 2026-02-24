@@ -2,7 +2,7 @@
 Complaint model for intercepted customer complaints.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import CheckConstraint, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -19,7 +19,7 @@ class Complaint(Base):
         client_name: Имя клиента (optional)
         client_phone: Телефон клиента (optional)
         client_email: Email клиента (optional)
-        rating: Низкая оценка (обычно < 3.0)
+        rating: Целочисленная оценка (2..5)
         text: Текст жалобы
         intercepted: Флаг перехвата (true = не опубликовано)
         resolved: Флаг решения проблемы
@@ -31,6 +31,9 @@ class Complaint(Base):
     """
 
     __tablename__ = "complaints"
+    __table_args__ = (
+        CheckConstraint("rating IN (2, 3, 4, 5)", name="ck_complaints_rating_allowed_values"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False, index=True)
@@ -41,15 +44,15 @@ class Complaint(Base):
     client_email = Column(String, nullable=True)
 
     # Complaint content
-    rating = Column(Float, nullable=False)  # Низкая оценка (обычно < 3.0)
+    rating = Column(Integer, nullable=False)  # 2 - 5
     text = Column(String, nullable=False)
 
     # Status
     intercepted = Column(Boolean, default=True)  # Перехвачено до публикации
-    resolved = Column(Boolean, default=False)  # Проблема решена
+    resolved = Column(Boolean, default=False, index=True)  # Проблема решена
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships

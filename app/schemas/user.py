@@ -2,10 +2,12 @@
 Pydantic schemas for users.
 """
 
-from pydantic import BaseModel, EmailStr
+from pydantic import EmailStr
+
+from app.schemas.common import APIModel
 
 
-class UserResponse(BaseModel):
+class UserResponse(APIModel):
     """Schema for user response (excluding password)."""
 
     id: int
@@ -15,11 +17,8 @@ class UserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
 
-    class Config:
-        from_attributes = True
 
-
-class UserCreate(BaseModel):
+class UserCreate(APIModel):
     """Schema for creating new user."""
 
     username: str

@@ -48,7 +48,8 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
             detail="Пользователь неактивен",
         )
 
-    access_token = create_access_token(data={"sub": user.id})
+    # jose/jwt expects "sub" claim as string; int subject breaks decode validation.
+    access_token = create_access_token(data={"sub": str(user.id)})
 
     return LoginResponse(
         access_token=access_token,
@@ -65,29 +66,24 @@ async def forgot_password(
     Send password reset link to user's email.
 
     ⚠️ ЗАГЛУШКА: Email НЕ отправляется реально, только mock ответ.
+    Всегда возвращает 200 OK, чтобы предотвратить перечисление пользователей.
 
     Args:
         request: ForgotPasswordRequest with email
         db: Database session
 
     Returns:
-        Success message
-
-    Raises:
-        HTTPException 404: User with email not found
+        Success message (always 200 OK)
     """
+    # Проверяем пользователя, но НЕ раскрываем существование email
     user = db.query(User).filter(User.email == request.email).first()
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Пользователь с таким email не найден",
-        )
+    if user:
+        # TODO: Отправить email с ссылкой для восстановления
+        pass
 
-    # TODO: Отправить email с ссылкой для восстановления
-    # Пока просто возвращаем успешный ответ
-
-    return {"message": "Ссылка для восстановления пароля отправлена на email"}
+    # Всегда возвращаем одинаковый ответ (предотвращение user enumeration)
+    return {"message": "Если указанный email зарегистрирован, на него отправлена ссылка для восстановления пароля"}
 
 
 @router.get("/me", response_model=UserResponse)

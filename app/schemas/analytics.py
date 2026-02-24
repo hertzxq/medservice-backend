@@ -2,10 +2,13 @@
 Pydantic schemas for analytics endpoints.
 """
 
-from pydantic import BaseModel
+from datetime import datetime
+
+from app.models.review import PlatformEnum
+from app.schemas.common import APIModel
 
 
-class AnalyticsResponse(BaseModel):
+class AnalyticsResponse(APIModel):
     """
     Schema for single branch analytics.
     Endpoint: GET /api/v1/analytics/{branch_id}
@@ -17,7 +20,7 @@ class AnalyticsResponse(BaseModel):
     avg_rating: float  # Средний рейтинг (0.0 - 5.0)
 
 
-class BranchAnalyticsRow(BaseModel):
+class BranchAnalyticsRow(APIModel):
     """
     Schema for single row in branches analytics table.
     Endpoint: GET /api/v1/analytics/branches
@@ -31,26 +34,81 @@ class BranchAnalyticsRow(BaseModel):
     avg_rating: float  # Средний рейтинг
     nps: int  # Net Promoter Score
 
-    class Config:
-        # Для совместимости с camelCase в frontend
-        populate_by_name = True
-        json_schema_extra = {
-            "example": {
-                "id": 1,
-                "name": "Счастливый взгляд, Сенная ул. 10",
-                "requests": 40,
-                "new_reviews": 7,
-                "intercepted_complaints": 3,
-                "avg_rating": 4.5,
-                "nps": 60,
-            }
-        }
 
-
-class BranchesAnalyticsResponse(BaseModel):
+class BranchesAnalyticsResponse(APIModel):
     """
     Schema for branches analytics response.
     Endpoint: GET /api/v1/analytics/branches
     """
 
     rows: list[BranchAnalyticsRow]
+
+
+class PlatformAnalyticsRow(APIModel):
+    """Platform-level metrics for analytics dashboard."""
+
+    platform: PlatformEnum
+    label: str
+    enabled: bool
+    rating: float
+    reviews: int
+    total_reviews: int
+    total_negative: int
+    negative_percent: float
+
+
+class SatisfactionRow(APIModel):
+    """Ratings distribution (1-5 stars)."""
+
+    stars: int
+    count: int
+    percent: float
+
+
+class NpsSeriesPoint(APIModel):
+    """Single point in NPS chart."""
+
+    index: int
+    nps: int
+
+
+class EmployeeScoreRow(APIModel):
+    """Employee score card inferred from review mentions."""
+
+    name: str
+    ratings_count: int
+    five_star_percent: float
+    four_star_percent: float
+    three_star_percent: float
+    two_star_percent: float
+    one_star_percent: float
+    avg_rating: float
+
+
+class AnalyticsReviewFeedItem(APIModel):
+    """Compact review item for analytics right panel."""
+
+    id: int
+    reviewer_name: str | None
+    rating: int
+    text: str | None
+    platform: PlatformEnum
+    platform_label: str
+    published_at: datetime | None
+
+
+class AnalyticsDashboardResponse(APIModel):
+    """Extended analytics payload for dashboard UI."""
+
+    sent: int
+    reviews: int
+    complaints: int
+    avg_rating: float
+    period_start: datetime
+    period_end: datetime
+    platforms: list[PlatformAnalyticsRow]
+    satisfaction: list[SatisfactionRow]
+    nps_small: list[NpsSeriesPoint]
+    nps_large: list[NpsSeriesPoint]
+    employees: list[EmployeeScoreRow]
+    recent_reviews: list[AnalyticsReviewFeedItem]

@@ -3,8 +3,16 @@ FastAPI application entry point.
 MedService Feedback API - Backend for medical clinic review management.
 """
 
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+if __package__ in (None, ""):
+    # Allows running `python /path/to/app/main.py` from any working directory.
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
 from app.api.v1.router import api_router
@@ -46,3 +54,12 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+    )
