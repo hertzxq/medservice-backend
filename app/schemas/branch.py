@@ -2,6 +2,8 @@
 Pydantic schemas for branches.
 """
 
+from pydantic import ConfigDict
+
 from app.schemas.common import APIModel
 
 
@@ -13,8 +15,29 @@ class BranchResponse(APIModel):
     address: str | None
     city: str | None
     phone: str | None
+    timezone: str
+    specialization: str
+    request_frequency_days: int
+    complaint_emails: list[str]
+    reminder_emails: list[str]
     avg_rating: float
     nps_score: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BranchUpdate(APIModel):
+    """Schema for updating branch settings"""
+
+    name: str | None = None
+    address: str | None = None
+    city: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
+    specialization: str | None = None
+    request_frequency_days: int | None = None
+    complaint_emails: list[str] | None = None
+    reminder_emails: list[str] | None = None
 
 
 class BranchesListResponse(APIModel):

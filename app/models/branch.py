@@ -2,7 +2,7 @@
 Branch model for clinic branches/locations.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -19,6 +19,11 @@ class Branch(Base):
         address: Адрес филиала (optional)
         city: Город (optional)
         phone: Телефон (optional)
+        timezone: Часовой пояс филиала
+        specialization: Направление деятельности
+        request_frequency_days: Частота отправки запросов (в днях)
+        complaint_emails: Список email для перехваченных жалоб
+        reminder_emails: Список email для напоминаний
         avg_rating: Средняя оценка (кэшированная метрика)
         nps_score: Net Promoter Score (кэшированная метрика)
         created_at: Timestamp создания
@@ -28,6 +33,8 @@ class Branch(Base):
         reviews: Связь с отзывами (Review)
         complaints: Связь с жалобами (Complaint)
         requests: Связь с запросами (Request)
+        employees: Связь с сотрудниками (Employee)
+        blacklist_users: Связь с черным списком (BlacklistUser)
     """
 
     __tablename__ = "branches"
@@ -37,6 +44,13 @@ class Branch(Base):
     address = Column(String, nullable=True)
     city = Column(String, nullable=True)
     phone = Column(String, nullable=True)
+    
+    # Настройки филиала
+    timezone = Column(String, default="Московское время - UTC +3")
+    specialization = Column(String, default="Офтальмология")
+    request_frequency_days = Column(Integer, default=14)
+    complaint_emails = Column(JSON, default=list)
+    reminder_emails = Column(JSON, default=list)
 
     # Кэшированные метрики для производительности
     avg_rating = Column(Float, default=0.0)
@@ -50,6 +64,8 @@ class Branch(Base):
     reviews = relationship("Review", back_populates="branch", cascade="all, delete-orphan")
     complaints = relationship("Complaint", back_populates="branch", cascade="all, delete-orphan")
     requests = relationship("Request", back_populates="branch", cascade="all, delete-orphan")
+    employees = relationship("Employee", back_populates="branch", cascade="all, delete-orphan")
+    blacklist_users = relationship("BlacklistUser", back_populates="branch", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Branch(id={self.id}, name={self.name}, city={self.city})>"

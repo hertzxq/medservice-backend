@@ -8,6 +8,8 @@ from app.models.branch import Branch
 from app.models.review import Review, PlatformEnum
 from app.models.complaint import Complaint
 from app.models.request import Request, RequestStatusEnum
+from app.models.employee import Employee
+from app.models.blacklist import BlacklistUser
 
 __all__ = [
     "User",
@@ -17,4 +19,6 @@ __all__ = [
     "Complaint",
     "Request",
     "RequestStatusEnum",
+    "Employee",
+    "BlacklistUser",
 ]

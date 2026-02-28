@@ -24,7 +24,7 @@ def seed_database():
 
     # 1. Создать admin пользователя
     # ❗ ВНИМАНИЕ: Смените пароль перед использованием в production!
-    default_password = "MedSvc!Adm1n_2024"
+    default_password = "12345678"
     admin = User(
         email="admin@medservice.com",
         username="admin",
