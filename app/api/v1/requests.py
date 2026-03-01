@@ -30,7 +30,11 @@ def get_requests(
     """Get list of feedback requests with filters."""
     branch_filter = branch_id if branch_id is not None else branch_id_legacy
 
-    query = db.query(Request).options(joinedload(Request.branch))
+    query = db.query(Request).options(
+        joinedload(Request.branch),
+        joinedload(Request.review),
+        joinedload(Request.complaint)
+    )
 
     if branch_filter is not None:
         query = query.filter(Request.branch_id == branch_filter)
@@ -40,11 +44,19 @@ def get_requests(
     total = query.count()
     requests = query.order_by(Request.sent_at.desc()).offset(offset).limit(limit).all()
 
-    # Add branch name
+    # Add branch name, rating, and platform
     response_requests = []
     for req in requests:
         req_dict = RequestResponse.model_validate(req).model_dump()
         req_dict["branch_name"] = req.branch.name if req.branch else None
+        
+        if req.review:
+            req_dict["rating"] = req.review.rating
+            req_dict["platform"] = req.review.platform.value if req.review.platform else None
+        elif req.complaint:
+            req_dict["rating"] = req.complaint.rating
+            req_dict["platform"] = "complaint"
+            
         response_requests.append(RequestResponse(**req_dict))
 
     return RequestsListResponse(requests=response_requests, total=total)

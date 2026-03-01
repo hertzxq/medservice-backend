@@ -22,6 +22,10 @@ class RequestResponse(APIModel):
     opened_at: datetime | None
     rated_at: datetime | None
     published_at: datetime | None
+    
+    # Retrieved from related entities
+    rating: int | None = None
+    platform: str | None = None
 
 
 class RequestsListResponse(APIModel):

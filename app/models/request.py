@@ -84,6 +84,8 @@ class Request(Base):
 
     # Relationships
     branch = relationship("Branch", back_populates="requests")
+    review = relationship("Review", foreign_keys=[review_id])
+    complaint = relationship("Complaint", foreign_keys=[complaint_id])
 
     def __repr__(self) -> str:
         return f"<Request(id={self.id}, branch_id={self.branch_id}, status={self.status})>"
