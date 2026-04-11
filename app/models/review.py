@@ -30,7 +30,7 @@ class Review(Base):
         branch_id: Foreign key к филиалу
         reviewer_name: Имя клиента (optional)
         reviewer_phone: Телефон клиента (optional)
-        rating: Целочисленная оценка (2..5)
+        rating: Целочисленная оценка (1..5)
         text: Текст отзыва (optional)
         platform: Платформа отзыва (enum)
         external_url: Ссылка на отзыв (optional)
@@ -44,7 +44,7 @@ class Review(Base):
 
     __tablename__ = "reviews"
     __table_args__ = (
-        CheckConstraint("rating IN (2, 3, 4, 5)", name="ck_reviews_rating_allowed_values"),
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_reviews_rating_range"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -55,9 +55,12 @@ class Review(Base):
     reviewer_phone = Column(String, nullable=True)
 
     # Review content
-    rating = Column(Integer, nullable=False)  # 2 - 5
+    rating = Column(Integer, nullable=False)  # 1 - 5
     text = Column(String, nullable=True)
     platform = Column(Enum(PlatformEnum), nullable=False, index=True)
+
+    # Organization reply (parsed from platform)
+    response_text = Column(String, nullable=True)
 
     # External link
     external_url = Column(String, nullable=True)

@@ -37,4 +37,4 @@ poetry run uvicorn app.main:app --reload
 ## Тестовые данные
 
 - **Username:** admin
-- **Password:** password123
+- **Password:** 12345678

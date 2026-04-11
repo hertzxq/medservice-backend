@@ -93,8 +93,8 @@ def to_utc_naive(dt: datetime) -> datetime:
 
 
 def clamp_star(rating: float) -> int:
-    """Normalize rating into integer star bucket [2..5]."""
-    return max(2, min(5, int(round(rating))))
+    """Normalize rating into integer star bucket [1..5]."""
+    return max(1, min(5, int(round(rating))))
 
 
 def is_promoter(rating: float) -> bool:

@@ -52,6 +52,9 @@ class Branch(Base):
     complaint_emails = Column(JSON, default=list)
     reminder_emails = Column(JSON, default=list)
 
+    # URLs for review platforms (e.g. {"yandex_maps": "https://...", "2gis": "https://..."})
+    platform_urls = Column(JSON, default=dict)
+
     # Кэшированные метрики для производительности
     avg_rating = Column(Float, default=0.0)
     nps_score = Column(Integer, default=0)

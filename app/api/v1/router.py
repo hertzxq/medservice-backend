@@ -14,6 +14,7 @@ from app.api.v1 import (
     requests,
     employees,
     blacklist,
+    parsing,
 )
 
 # Create main API router
@@ -28,3 +29,4 @@ api_router.include_router(complaints.router, tags=["Complaints"])
 api_router.include_router(requests.router, tags=["Requests"])
 api_router.include_router(employees.router, tags=["Employees"])
 api_router.include_router(blacklist.router, tags=["Blacklist"])
+api_router.include_router(parsing.router, tags=["Parsing"])
