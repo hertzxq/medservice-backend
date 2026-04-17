@@ -6,6 +6,7 @@ Collects all endpoint routers.
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    admin,
     auth,
     analytics,
     branches,
@@ -22,6 +23,7 @@ api_router = APIRouter()
 
 # Include all endpoint routers
 api_router.include_router(auth.router, tags=["Auth"])
+api_router.include_router(admin.router, tags=["Admin"])
 api_router.include_router(analytics.router, tags=["Analytics"])
 api_router.include_router(branches.router, tags=["Branches"])
 api_router.include_router(reviews.router, tags=["Reviews"])

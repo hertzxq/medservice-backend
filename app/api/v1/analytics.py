@@ -85,6 +85,34 @@ def get_period_dates(period: str) -> tuple[datetime, datetime]:
     return start_date, end_date
 
 
+def resolve_range(
+    period: str | None,
+    start: str | None,
+    end: str | None,
+) -> tuple[datetime, datetime]:
+    """Приоритет: кастомный диапазон start/end, иначе preset period."""
+    if start or end:
+        try:
+            start_dt = (
+                to_utc_naive(datetime.fromisoformat(start))
+                if start
+                else datetime.utcnow() - timedelta(days=30)
+            )
+            end_dt = (
+                to_utc_naive(datetime.fromisoformat(end)) if end else datetime.utcnow()
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Неверный формат даты. Ожидается ISO 8601 (YYYY-MM-DD или с временем).",
+            )
+        if start_dt > end_dt:
+            raise HTTPException(status_code=422, detail="start не может быть позже end")
+        return start_dt, end_dt
+
+    return get_period_dates(period or "30")
+
+
 def to_utc_naive(dt: datetime) -> datetime:
     """Normalize datetime to naive UTC for safe cross-source comparisons."""
     if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
@@ -304,7 +332,9 @@ def build_employee_rows(period_reviews: list[Review]) -> list[EmployeeScoreRow]:
 
 @router.get("/branches", response_model=BranchesAnalyticsResponse)
 def get_branches_analytics(
-    period: str = Query("30", pattern="^(week|30|90|year)$"),
+    period: str | None = Query(None, pattern="^(week|30|90|year)$"),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -312,16 +342,12 @@ def get_branches_analytics(
     Get analytics for all branches (table view).
 
     Endpoint: GET /api/v1/analytics/branches?period=30
-
-    Args:
-        period: "week" | "30" | "90" | "year"
-        db: Database session
-        current_user: Current authenticated user
+              GET /api/v1/analytics/branches?start=2026-01-01&end=2026-02-01
 
     Returns:
         BranchesAnalyticsResponse with rows for each branch
     """
-    start_date, _ = get_period_dates(period)
+    start_date, _ = resolve_range(period, start, end)
 
     # Оптимизированный запрос: один SQL вместо N+1
     from sqlalchemy import outerjoin, case, literal_column
@@ -394,7 +420,9 @@ def get_branches_analytics(
 @router.get("/{branch_id}/dashboard", response_model=AnalyticsDashboardResponse)
 def get_branch_analytics_dashboard(
     branch_id: int,
-    period: str = Query("30", pattern="^(week|30|90|year)$"),
+    period: str | None = Query(None, pattern="^(week|30|90|year)$"),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -403,7 +431,7 @@ def get_branch_analytics_dashboard(
     if not branch:
         raise HTTPException(status_code=404, detail="Филиал не найден")
 
-    start_date, end_date = get_period_dates(period)
+    start_date, end_date = resolve_range(period, start, end)
 
     sent = (
         db.query(func.count(Request.id))
@@ -476,7 +504,9 @@ def get_branch_analytics_dashboard(
 @router.get("/{branch_id}", response_model=AnalyticsResponse)
 def get_branch_analytics(
     branch_id: int,
-    period: str = Query("30", pattern="^(week|30|90|year)$"),
+    period: str | None = Query(None, pattern="^(week|30|90|year)$"),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -484,12 +514,7 @@ def get_branch_analytics(
     Get analytics for a specific branch.
 
     Endpoint: GET /api/v1/analytics/{branch_id}?period=30
-
-    Args:
-        branch_id: Branch ID
-        period: "week" | "30" | "90" | "year"
-        db: Database session
-        current_user: Current authenticated user
+              GET /api/v1/analytics/{branch_id}?start=2026-01-01&end=2026-02-01
 
     Returns:
         AnalyticsResponse with sent, reviews, complaints, avgRating
@@ -499,7 +524,7 @@ def get_branch_analytics(
     if not branch:
         raise HTTPException(status_code=404, detail="Филиал не найден")
 
-    start_date, _ = get_period_dates(period)
+    start_date, _ = resolve_range(period, start, end)
 
     # Count sent requests
     sent = (

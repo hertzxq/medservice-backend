@@ -19,7 +19,7 @@ def get_complaints(
     branch_id: int | None = Query(None, alias="branchId"),
     branch_id_legacy: int | None = Query(None, alias="branch_id", include_in_schema=False),
     resolved: bool | None = Query(None),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

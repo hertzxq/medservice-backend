@@ -11,8 +11,19 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_current_superuser
 from app.models.user import User
 from app.models.branch import Branch
+from app.models.blacklist import BlacklistUser
 from app.models.request import Request, RequestStatusEnum
 from app.schemas.request import RequestsListResponse, RequestResponse, RequestCreateRequest, RequestCreateResponse
+
+
+def _normalize_phone(phone: str | None) -> str:
+    """Сравниваем телефоны по цифрам. Для RU-номеров 8XXXXXXXXXX = 7XXXXXXXXXX."""
+    if not phone:
+        return ""
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = "7" + digits[1:]
+    return digits
 
 router = APIRouter(prefix="/requests")
 
@@ -53,6 +64,7 @@ def get_requests(
         if req.review:
             req_dict["rating"] = req.review.rating
             req_dict["platform"] = req.review.platform.value if req.review.platform else None
+            req_dict["review_url"] = req.review.external_url
         elif req.complaint:
             req_dict["rating"] = req.complaint.rating
             req_dict["platform"] = "complaint"
@@ -72,6 +84,21 @@ def create_request(
     branch_exists = db.query(Branch.id).filter(Branch.id == request.branch_id).first()
     if not branch_exists:
         raise HTTPException(status_code=404, detail="Филиал не найден")
+
+    normalized = _normalize_phone(request.client_phone)
+    if normalized:
+        blacklist_entries = (
+            db.query(BlacklistUser)
+            .filter(BlacklistUser.branch_id == request.branch_id)
+            .all()
+        )
+        for entry in blacklist_entries:
+            if _normalize_phone(entry.phone) == normalized:
+                reason = entry.reason or "без указания причины"
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Клиент в чёрном списке филиала: {reason}",
+                )
 
     new_request = Request(
         branch_id=request.branch_id,

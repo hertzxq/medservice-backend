@@ -22,6 +22,8 @@ from app.models.complaint import Complaint
 from app.models.request import Request, RequestStatusEnum
 from app.models.review import PlatformEnum, Review
 from app.models.user import User
+from app.models.employee import Employee  # noqa: F401 — needed for table creation
+from app.models.blacklist import BlacklistUser  # noqa: F401 — needed for table creation
 
 
 @pytest.fixture(scope="session")
@@ -51,7 +53,15 @@ def seed_data(session) -> None:
         is_active=True,
         is_superuser=True,
     )
-    session.add(admin)
+    regular = User(
+        email="user@medservice.com",
+        username="user",
+        hashed_password=get_password_hash("password123"),
+        full_name="Regular User",
+        is_active=True,
+        is_superuser=False,
+    )
+    session.add_all([admin, regular])
 
     branch_1 = Branch(
         name="Счастливый взгляд, Сенная ул. 10",
@@ -193,6 +203,19 @@ def auth_headers(client):
     response = client.post(
         "/api/v1/auth/login",
         json={"username": "admin", "password": "password123"},
+    )
+    assert response.status_code == 200
+
+    token = response.json()["accessToken"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def user_auth_headers(client):
+    """Токен обычного (не superuser) пользователя — для тестов 403."""
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": "user", "password": "password123"},
     )
     assert response.status_code == 200
 

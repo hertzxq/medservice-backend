@@ -26,6 +26,7 @@ class RequestResponse(APIModel):
     # Retrieved from related entities
     rating: int | None = None
     platform: str | None = None
+    review_url: str | None = None
 
 
 class RequestsListResponse(APIModel):

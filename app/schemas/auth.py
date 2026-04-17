@@ -27,8 +27,19 @@ class UserResponse(APIModel):
     username: str
     email: str
     full_name: str | None
+    phone: str | None
+    role: str | None
     is_active: bool
     is_superuser: bool
+
+
+class UserUpdate(APIModel):
+    """Schema for updating current user profile."""
+
+    full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    role: str | None = None
 
 
 class LoginResponse(APIModel):

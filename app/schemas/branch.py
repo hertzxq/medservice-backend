@@ -2,6 +2,8 @@
 Pydantic schemas for branches.
 """
 
+import datetime
+
 from pydantic import ConfigDict
 
 from app.schemas.common import APIModel
@@ -20,6 +22,9 @@ class BranchResponse(APIModel):
     request_frequency_days: int
     complaint_emails: list[str]
     reminder_emails: list[str]
+    is_active: bool
+    paid_until: datetime.date | None
+    employees_count: int = 0
     avg_rating: float
     nps_score: int
 
@@ -38,6 +43,21 @@ class BranchUpdate(APIModel):
     request_frequency_days: int | None = None
     complaint_emails: list[str] | None = None
     reminder_emails: list[str] | None = None
+    is_active: bool | None = None
+    paid_until: datetime.date | None = None
+
+
+class BranchCreate(APIModel):
+    """Schema for creating a new branch."""
+
+    name: str
+    address: str | None = None
+    city: str | None = None
+    phone: str | None = None
+    timezone: str = "Московское время - UTC +3"
+    specialization: str = "Офтальмология"
+    request_frequency_days: int = 14
+    paid_until: datetime.date | None = None
 
 
 class BranchesListResponse(APIModel):

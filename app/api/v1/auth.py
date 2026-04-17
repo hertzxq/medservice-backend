@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_superuser
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     ForgotPasswordRequest,
     UserResponse,
+    UserUpdate,
 )
 
 router = APIRouter(prefix="/auth")
@@ -97,4 +98,19 @@ async def get_me(current_user: User = Depends(get_current_user)):
     Returns:
         UserResponse with current user data
     """
+    return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update current user profile (full_name, email, phone, role)."""
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+    db.commit()
+    db.refresh(current_user)
     return UserResponse.model_validate(current_user)

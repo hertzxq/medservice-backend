@@ -3,13 +3,15 @@ Branches endpoints: get list of branches.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_superuser
+from app.models.employee import Employee
 from app.models.user import User
 from app.models.branch import Branch
-from app.schemas.branch import BranchesListResponse, BranchResponse, BranchUpdate
+from app.schemas.branch import BranchCreate, BranchesListResponse, BranchResponse, BranchUpdate
 
 router = APIRouter(prefix="/branches")
 
@@ -29,10 +31,47 @@ async def get_branches(
     """
     branches = db.query(Branch).all()
 
-    return BranchesListResponse(
-        branches=[BranchResponse.model_validate(b) for b in branches],
-        total=len(branches),
+    counts = dict(
+        db.query(Employee.branch_id, func.count(Employee.id))
+        .group_by(Employee.branch_id)
+        .all()
     )
+
+    result = []
+    for b in branches:
+        data = BranchResponse.model_validate(b)
+        data.employees_count = counts.get(b.id, 0)
+        result.append(data)
+
+    return BranchesListResponse(branches=result, total=len(result))
+
+
+@router.post("", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
+async def create_branch(
+    payload: BranchCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """Create a new branch (superuser only). Endpoint: POST /api/v1/branches"""
+    branch = Branch(
+        name=payload.name,
+        address=payload.address,
+        city=payload.city,
+        phone=payload.phone,
+        timezone=payload.timezone,
+        specialization=payload.specialization,
+        request_frequency_days=payload.request_frequency_days,
+        paid_until=payload.paid_until,
+        complaint_emails=[],
+        reminder_emails=[],
+        platform_urls={},
+    )
+    db.add(branch)
+    db.commit()
+    db.refresh(branch)
+    data = BranchResponse.model_validate(branch)
+    data.employees_count = 0
+    return data
 
 
 @router.patch("/{branch_id}", response_model=BranchResponse)
@@ -40,7 +79,7 @@ async def update_branch(
     branch_id: int,
     branch_update: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_superuser),
 ):
     """
     Update branch settings.

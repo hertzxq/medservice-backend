@@ -12,7 +12,6 @@ from app.core.security import get_password_hash
 from app.models.user import User
 from app.models.branch import Branch
 from app.models.review import Review, PlatformEnum
-from app.models.complaint import Complaint
 from app.models.request import Request, RequestStatusEnum
 
 
@@ -41,34 +40,22 @@ def seed_database():
     # 2. Создать 5 филиалов (как в frontend mock)
     branches_data = [
         {
-            "name": "Счастливый взгляд, Сенная ул. 10",
+            "name": "Счастливый взгляд, Лиговский просп., 52К",
             "city": "Санкт-Петербург",
             "avg_rating": 5.0,
             "nps_score": 80,
         },
         {
-            "name": "Счастливый взгляд, Невский пр. 12",
+            "name": "Счастливый взгляд, Кирочная ул., 26",
             "city": "Санкт-Петербург",
             "avg_rating": 4.9,
             "nps_score": 70,
         },
         {
-            "name": "Счастливый взгляд, ул. Сизова 6",
+            "name": "Счастливый взгляд, 7-я линия Васильевского острова, 42",
             "city": "Санкт-Петербург",
             "avg_rating": 4.5,
             "nps_score": 60,
-        },
-        {
-            "name": "Счастливый взгляд, наб. реки Фонтанки 114",
-            "city": "Санкт-Петербург",
-            "avg_rating": 3.5,
-            "nps_score": 30,
-        },
-        {
-            "name": "Счастливый взгляд, Литейный пр. 2",
-            "city": "Санкт-Петербург",
-            "avg_rating": 2.5,
-            "nps_score": -10,
         },
     ]
 
@@ -115,26 +102,7 @@ def seed_database():
     db.commit()
     print("✅ Created reviews")
 
-    # 4. Создать жалобы (2-5 на филиал)
-    for branch in branches:
-        complaint_count = random.randint(2, 5)
-        for i in range(complaint_count):
-            complaint = Complaint(
-                branch_id=branch.id,
-                client_name=f"Недовольный клиент {i + 1}",
-                client_phone=f"+7 (9XX) XXX-XX-{i:02d}",
-                rating=random.choice([2, 3]),
-                text=f"Тестовая жалоба #{i + 1}: долго ждал приема",
-                intercepted=True,
-                resolved=random.choice([True, False]),
-                created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30)),
-            )
-            db.add(complaint)
-
-    db.commit()
-    print("✅ Created complaints")
-
-    # 5. Создать запросы (20-30 на филиал)
+    # 4. Создать запросы (20-30 на филиал)
     statuses = list(RequestStatusEnum)
     for branch in branches:
         request_count = random.randint(20, 30)

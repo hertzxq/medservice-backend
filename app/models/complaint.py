@@ -32,7 +32,7 @@ class Complaint(Base):
 
     __tablename__ = "complaints"
     __table_args__ = (
-        CheckConstraint("rating IN (2, 3, 4, 5)", name="ck_complaints_rating_allowed_values"),
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_complaints_rating_allowed_values"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -44,7 +44,7 @@ class Complaint(Base):
     client_email = Column(String, nullable=True)
 
     # Complaint content
-    rating = Column(Integer, nullable=False)  # 2 - 5
+    rating = Column(Integer, nullable=False)  # 1 - 5
     text = Column(String, nullable=False)
 
     # Status

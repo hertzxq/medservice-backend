@@ -2,7 +2,7 @@
 Branch model for clinic branches/locations.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON
+from sqlalchemy import Boolean, Column, Date, Integer, String, Float, DateTime, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -54,6 +54,10 @@ class Branch(Base):
 
     # URLs for review platforms (e.g. {"yandex_maps": "https://...", "2gis": "https://..."})
     platform_urls = Column(JSON, default=dict)
+
+    # Статус и подписка
+    is_active = Column(Boolean, default=True, nullable=False)
+    paid_until = Column(Date, nullable=True)
 
     # Кэшированные метрики для производительности
     avg_rating = Column(Float, default=0.0)

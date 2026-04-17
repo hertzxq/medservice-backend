@@ -38,7 +38,7 @@ def get_reviews(
     rating_max: float | None = Query(None, alias="ratingMax", ge=1.0, le=5.0),
     rating_max_legacy: float | None = Query(None, alias="rating_max", ge=1.0, le=5.0, include_in_schema=False),
     period: str | None = Query(None, pattern="^(week|30|90|year)$"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
