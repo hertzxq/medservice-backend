@@ -52,6 +52,8 @@ ENABLED_PLATFORMS = {
     PlatformEnum.YANDEX_MAPS,
     PlatformEnum.GOOGLE_MAPS,
     PlatformEnum.TWO_GIS,
+    PlatformEnum.PRODOCTOROV,
+    PlatformEnum.NAPOPRAVKU,
 }
 
 EMPLOYEE_NAME_PATTERN = re.compile(

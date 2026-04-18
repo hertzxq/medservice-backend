@@ -54,7 +54,9 @@ def test_non_superuser_cannot_delete_employee(client, user_auth_headers, auth_he
     assert response.status_code == 403
 
 
-def test_non_superuser_cannot_add_blacklist(client, user_auth_headers):
+def test_non_superuser_can_add_blacklist(client, user_auth_headers):
+    """Обычный пользователь может добавлять в чёрный список филиала.
+    PATCH/DELETE по-прежнему остаются за superuser."""
     response = client.post(
         "/api/v1/blacklist?branch_id=1",
         json={
@@ -65,10 +67,14 @@ def test_non_superuser_cannot_add_blacklist(client, user_auth_headers):
         },
         headers=user_auth_headers,
     )
-    assert response.status_code == 403
+    assert response.status_code == 201
+    body = response.json()
+    assert body["lastName"] == "Иванов"
+    assert body["phone"] == "+79990000000"
 
 
-def test_non_superuser_cannot_delete_blacklist(client, user_auth_headers, auth_headers):
+def test_non_superuser_can_delete_blacklist(client, user_auth_headers, auth_headers):
+    """Обычный пользователь может удалять записи из чёрного списка."""
     created = client.post(
         "/api/v1/blacklist?branch_id=1",
         json={
@@ -85,7 +91,7 @@ def test_non_superuser_cannot_delete_blacklist(client, user_auth_headers, auth_h
         f"/api/v1/blacklist/{user_id}",
         headers=user_auth_headers,
     )
-    assert response.status_code == 403
+    assert response.status_code == 204
 
 
 def test_non_superuser_cannot_create_request(client, user_auth_headers):

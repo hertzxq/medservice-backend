@@ -104,3 +104,26 @@ async def update_branch(
     db.refresh(branch)
 
     return BranchResponse.model_validate(branch)
+
+
+@router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_branch(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """Delete a branch and all related data (superuser only).
+
+    Endpoint: DELETE /api/v1/branches/{branch_id}
+
+    Каскадно удаляет отзывы, жалобы, запросы, сотрудников и чёрный список
+    благодаря `cascade='all, delete-orphan'` на модели `Branch`.
+    """
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Филиал не найден",
+        )
+    db.delete(branch)
+    db.commit()

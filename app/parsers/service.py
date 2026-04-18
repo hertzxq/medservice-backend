@@ -21,6 +21,7 @@ PLATFORM_MAP: dict[str, PlatformEnum] = {
     "google_maps": PlatformEnum.GOOGLE_MAPS,
     "2gis": PlatformEnum.TWO_GIS,
     "prodoctorov": PlatformEnum.PRODOCTOROV,
+    "napopravku": PlatformEnum.NAPOPRAVKU,
 }
 
 

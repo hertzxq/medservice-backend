@@ -26,6 +26,7 @@ PLATFORM_LABELS = {
     "google_maps": "Google Maps",
     "2gis": "2GIS",
     "prodoctorov": "ПроДокторов",
+    "napopravku": "НаПоправку",
 }
 
 ALL_PLATFORMS = list(PLATFORM_LABELS.keys())

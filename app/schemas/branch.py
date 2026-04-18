@@ -22,6 +22,7 @@ class BranchResponse(APIModel):
     request_frequency_days: int
     complaint_emails: list[str]
     reminder_emails: list[str]
+    platform_urls: dict[str, str] = {}
     is_active: bool
     paid_until: datetime.date | None
     employees_count: int = 0
@@ -43,6 +44,7 @@ class BranchUpdate(APIModel):
     request_frequency_days: int | None = None
     complaint_emails: list[str] | None = None
     reminder_emails: list[str] | None = None
+    platform_urls: dict[str, str] | None = None
     is_active: bool | None = None
     paid_until: datetime.date | None = None
 

@@ -24,7 +24,7 @@ if str(_PARSERS_ROOT) not in sys.path:
 def detect_platform(url: str) -> str:
     """Detect the review platform from a URL string.
 
-    Returns one of: yandex_maps, google_maps, 2gis, prodoctorov, other.
+    Returns one of: yandex_maps, google_maps, 2gis, prodoctorov, napopravku, other.
     """
     url_lower = url.lower()
     # Yandex may redirect to regional TLDs: yandex.md, yandex.by, yandex.kz etc.
@@ -36,6 +36,8 @@ def detect_platform(url: str) -> str:
         return "2gis"
     if "prodoctorov.ru" in url_lower:
         return "prodoctorov"
+    if "napopravku.ru" in url_lower:
+        return "napopravku"
     return "other"
 
 
@@ -69,6 +71,11 @@ async def run_parser(url: str, headless: bool = True) -> ParseResult:
     elif platform == "prodoctorov":
         from prodoctorov_reviews.parser import ProdoctorovParser  # type: ignore[import-untyped]
         parser = ProdoctorovParser(headless=headless)
+        raw = await parser.parse_by_url(url)
+
+    elif platform == "napopravku":
+        from napopravku_reviews.parser import NapopravkuReviewsParser  # type: ignore[import-untyped]
+        parser = NapopravkuReviewsParser(headless=headless)
         raw = await parser.parse_by_url(url)
 
     else:

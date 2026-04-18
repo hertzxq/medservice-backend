@@ -81,3 +81,6 @@ Thumbs.db
 
 # Local audit notes
 BUGS.MD
+
+# One-shot / dev scripts (name starts with underscore in repo root)
+/_*.py

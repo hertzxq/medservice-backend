@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, get_current_superuser
+from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.blacklist import BlacklistUser
 from app.models.branch import Branch
@@ -33,10 +33,11 @@ async def create_blacklist_user(
     branch_id: int,
     user_in: BlacklistUserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Add a new user to the blacklist for a branch.
+    Доступно любому авторизованному пользователю в рамках выбранного филиала.
     """
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
     if not branch:
@@ -60,10 +61,11 @@ async def update_blacklist_user(
     user_id: int,
     user_update: BlacklistUserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update blacklisted user details.
+    Доступно любому авторизованному пользователю.
     """
     user = db.query(BlacklistUser).filter(BlacklistUser.id == user_id).first()
     if not user:
@@ -82,10 +84,11 @@ async def update_blacklist_user(
 async def delete_blacklist_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Remove a user from the blacklist.
+    Доступно любому авторизованному пользователю.
     """
     user = db.query(BlacklistUser).filter(BlacklistUser.id == user_id).first()
     if not user:
