@@ -3,11 +3,14 @@ FastAPI application entry point.
 MedService Feedback API - Backend for medical clinic review management.
 """
 
+import logging
 import sys
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import uvicorn
 
 if __package__ in (None, ""):
@@ -15,7 +18,12 @@ if __package__ in (None, ""):
     sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
+from app.core.logging import setup_logging
+from app.core.rate_limit import limiter
 from app.api.v1.router import api_router
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -26,6 +34,10 @@ app = FastAPI(
     redoc_url="/redoc",  # ReDoc
     description="REST API для управления отзывами медицинских клиник",
 )
+
+# Rate limiting (slowapi) — requires state attribute and 429 handler.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware для Next.js frontend
 app.add_middleware(
@@ -38,6 +50,13 @@ app.add_middleware(
 
 # Include API router with /api/v1 prefix
 app.include_router(api_router, prefix="/api/v1")
+
+logger.info(
+    "Application started: name=%s debug=%s env=%s",
+    settings.app_name,
+    settings.debug,
+    settings.environment,
+)
 
 
 @app.get("/")

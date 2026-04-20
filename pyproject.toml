@@ -29,6 +29,9 @@ pydantic-settings = "^2.5.2"
 python-dotenv = "^1.0.1"
 python-dateutil = "^2.9.0"
 
+# Rate limiting
+slowapi = "^0.1.9"
+
 # Parsers (review scraping from Google, Yandex, 2GIS, Prodoctorov)
 playwright = "^1.49"
 beautifulsoup4 = "^4.12"

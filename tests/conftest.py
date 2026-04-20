@@ -16,7 +16,12 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 
 from app.main import app
 from app.core.database import Base, get_db
+from app.core.rate_limit import limiter
 from app.core.security import get_password_hash
+
+# Rate limiting is disabled during tests — many tests hit /auth/login via the
+# auth_headers fixture, which would otherwise trip the 5/minute limit.
+limiter.enabled = False
 from app.models.branch import Branch
 from app.models.complaint import Complaint
 from app.models.request import Request, RequestStatusEnum
