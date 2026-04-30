@@ -79,7 +79,7 @@ async def update_branch(
     branch_id: int,
     branch_update: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update branch settings.

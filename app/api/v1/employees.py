@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, get_current_superuser
+from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.employee import Employee
 from app.models.branch import Branch
@@ -33,7 +33,7 @@ async def create_employee(
     branch_id: int,
     employee_in: EmployeeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new employee for a branch.
@@ -59,7 +59,7 @@ async def update_employee(
     employee_id: int,
     employee_update: EmployeeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update employee details.
@@ -81,7 +81,7 @@ async def update_employee(
 async def delete_employee(
     employee_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete an employee.

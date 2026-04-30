@@ -70,6 +70,8 @@ class NpsSeriesPoint(APIModel):
 
     index: int
     nps: int
+    bucket_start: datetime
+    bucket_end: datetime
 
 
 class EmployeeScoreRow(APIModel):

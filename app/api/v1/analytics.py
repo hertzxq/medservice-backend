@@ -197,7 +197,17 @@ def build_nps_series(
             promoters_pct = bucket["promoters"] / total
             detractors_pct = bucket["detractors"] / total
             nps_value = int(round((promoters_pct - detractors_pct) * 100))
-        result.append(NpsSeriesPoint(index=index, nps=nps_value))
+
+        bucket_start_dt = start_date + timedelta(seconds=bucket_size * index)
+        bucket_end_dt = start_date + timedelta(seconds=bucket_size * (index + 1))
+        result.append(
+            NpsSeriesPoint(
+                index=index,
+                nps=nps_value,
+                bucket_start=bucket_start_dt,
+                bucket_end=bucket_end_dt,
+            )
+        )
 
     return result
 
