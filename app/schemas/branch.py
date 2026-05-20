@@ -23,6 +23,9 @@ class BranchResponse(APIModel):
     complaint_emails: list[str]
     reminder_emails: list[str]
     platform_urls: dict[str, str] = {}
+    public_name: str | None = None
+    public_city: str | None = None
+    logo_url: str | None = None
     is_active: bool
     paid_until: datetime.date | None
     employees_count: int = 0
@@ -45,6 +48,9 @@ class BranchUpdate(APIModel):
     complaint_emails: list[str] | None = None
     reminder_emails: list[str] | None = None
     platform_urls: dict[str, str] | None = None
+    public_name: str | None = None
+    public_city: str | None = None
+    logo_url: str | None = None
     is_active: bool | None = None
     paid_until: datetime.date | None = None
 
