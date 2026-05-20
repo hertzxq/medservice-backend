@@ -10,6 +10,7 @@ from app.models.complaint import Complaint
 from app.models.request import Request, RequestStatusEnum
 from app.models.employee import Employee
 from app.models.blacklist import BlacklistUser
+from app.models.bonus import BranchBonus, BonusCategory, AdminBonus
 
 __all__ = [
     "User",
@@ -21,4 +22,7 @@ __all__ = [
     "RequestStatusEnum",
     "Employee",
     "BlacklistUser",
+    "BranchBonus",
+    "BonusCategory",
+    "AdminBonus",
 ]
