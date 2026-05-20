@@ -26,6 +26,7 @@ class BranchResponse(APIModel):
     public_name: str | None = None
     public_city: str | None = None
     logo_url: str | None = None
+    website_url: str | None = None
     is_active: bool
     paid_until: datetime.date | None
     employees_count: int = 0
@@ -51,6 +52,7 @@ class BranchUpdate(APIModel):
     public_name: str | None = None
     public_city: str | None = None
     logo_url: str | None = None
+    website_url: str | None = None
     is_active: bool | None = None
     paid_until: datetime.date | None = None
 

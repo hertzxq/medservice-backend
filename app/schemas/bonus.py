@@ -58,6 +58,7 @@ class BranchBonusBase(APIModel):
     start_date: datetime.date
     end_date: datetime.date
     is_published: bool = True
+    promo_code: str | None = None
 
     @field_validator("description")
     @classmethod
@@ -83,6 +84,7 @@ class BranchBonusUpdate(APIModel):
     start_date: datetime.date | None = None
     end_date: datetime.date | None = None
     is_published: bool | None = None
+    promo_code: str | None = None
 
     @field_validator("description")
     @classmethod
@@ -98,6 +100,7 @@ class BranchBonusResponse(APIModel):
     description: str
     start_date: datetime.date
     end_date: datetime.date
+    promo_code: str | None = None
 
 
 # --- Bonus category ---------------------------------------------------------
@@ -137,6 +140,8 @@ class AdminBonusBase(APIModel):
     start_date: datetime.date
     end_date: datetime.date
     is_published: bool = True
+    promo_code: str | None = None
+    website_url: str | None = None
 
     @field_validator("company_name")
     @classmethod
@@ -184,6 +189,8 @@ class AdminBonusUpdate(APIModel):
     start_date: datetime.date | None = None
     end_date: datetime.date | None = None
     is_published: bool | None = None
+    promo_code: str | None = None
+    website_url: str | None = None
 
     @field_validator("company_name")
     @classmethod
@@ -217,6 +224,8 @@ class AdminBonusResponse(APIModel):
     description: str
     start_date: datetime.date
     end_date: datetime.date
+    promo_code: str | None = None
+    website_url: str | None = None
 
 
 class BonusCategoryResponse(APIModel):
