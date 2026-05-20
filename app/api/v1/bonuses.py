@@ -1,6 +1,7 @@
 """User-facing bonus endpoints: branch branding + branch bonuses."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -11,6 +12,7 @@ from app.models.user import User
 from app.schemas.bonus import (
     BrandingResponse,
     BrandingUpdate,
+    BranchBonusBase,
     BranchBonusCreate,
     BranchBonusResponse,
     BranchBonusUpdate,
@@ -22,7 +24,7 @@ router = APIRouter(prefix="/branches/{branch_id}")
 def _get_branch_or_404(db: Session, branch_id: int) -> Branch:
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
     if not branch:
-        raise HTTPException(status_code=404, detail="Филиал не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Филиал не найден")
     return branch
 
 
@@ -30,8 +32,9 @@ def _get_branch_or_404(db: Session, branch_id: int) -> Branch:
 async def get_branding(
     branch_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Получить публичную брендовую шапку филиала."""
     branch = _get_branch_or_404(db, branch_id)
     return BrandingResponse.model_validate(branch)
 
@@ -41,8 +44,9 @@ async def update_branding(
     branch_id: int,
     payload: BrandingUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Обновить публичную брендовую шапку филиала."""
     branch = _get_branch_or_404(db, branch_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(branch, key, value)
@@ -55,8 +59,9 @@ async def update_branding(
 async def list_branch_bonuses(
     branch_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Список бонусов филиала."""
     _get_branch_or_404(db, branch_id)
     items = (
         db.query(BranchBonus)
@@ -76,8 +81,9 @@ async def create_branch_bonus(
     branch_id: int,
     payload: BranchBonusCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Создать бонус для филиала."""
     _get_branch_or_404(db, branch_id)
     bonus = BranchBonus(branch_id=branch_id, **payload.model_dump())
     db.add(bonus)
@@ -92,23 +98,37 @@ async def update_branch_bonus(
     bonus_id: int,
     payload: BranchBonusUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Update a branch bonus (any subset of fields, including isPublished)."""
     bonus = (
         db.query(BranchBonus)
         .filter(BranchBonus.id == bonus_id, BranchBonus.branch_id == branch_id)
         .first()
     )
     if not bonus:
-        raise HTTPException(status_code=404, detail="Бонус не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Бонус не найден")
 
     data = payload.model_dump(exclude_unset=True)
     for key, value in data.items():
         setattr(bonus, key, value)
 
-    # End-date check post-merge
-    if bonus.end_date < bonus.start_date:
-        raise HTTPException(status_code=422, detail="endDate must be >= startDate")
+    # Re-validate cross-field invariant (end_date >= start_date) via Pydantic,
+    # so the 422 envelope matches the CREATE endpoint.
+    try:
+        BranchBonusBase.model_validate(
+            {
+                "discountPercent": bonus.discount_percent,
+                "description": bonus.description,
+                "startDate": bonus.start_date,
+                "endDate": bonus.end_date,
+                "isPublished": bonus.is_published,
+            }
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.errors()
+        )
 
     db.commit()
     db.refresh(bonus)
@@ -120,14 +140,15 @@ async def delete_branch_bonus(
     branch_id: int,
     bonus_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    """Удалить бонус филиала."""
     bonus = (
         db.query(BranchBonus)
         .filter(BranchBonus.id == bonus_id, BranchBonus.branch_id == branch_id)
         .first()
     )
     if not bonus:
-        raise HTTPException(status_code=404, detail="Бонус не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Бонус не найден")
     db.delete(bonus)
     db.commit()

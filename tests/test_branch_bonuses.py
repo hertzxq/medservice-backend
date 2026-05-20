@@ -99,7 +99,7 @@ def test_bonuses_require_auth(client):
 
 
 def test_deleting_branch_cascades_bonuses(client, auth_headers, session_factory):
-    """Deleting a branch should remove its bonuses through CASCADE."""
+    """Deleting a branch removes its bonuses via SQLAlchemy ORM cascade."""
     client.post(
         "/api/v1/branches/1/bonuses", json=_make_payload(), headers=auth_headers
     )
