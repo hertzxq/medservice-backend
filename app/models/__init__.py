@@ -11,6 +11,7 @@ from app.models.request import Request, RequestStatusEnum
 from app.models.employee import Employee
 from app.models.blacklist import BlacklistUser
 from app.models.bonus import BranchBonus, BonusCategory, AdminBonus
+from app.models.faq import FaqItem
 
 __all__ = [
     "User",
@@ -25,4 +26,5 @@ __all__ = [
     "BranchBonus",
     "BonusCategory",
     "AdminBonus",
+    "FaqItem",
 ]

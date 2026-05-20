@@ -59,6 +59,7 @@ class Branch(Base):
     public_name = Column(String, nullable=True)
     public_city = Column(String, nullable=True)
     logo_url = Column(Text, nullable=True)  # data:image/png;base64,... or None
+    website_url = Column(String, nullable=True)
 
     # Статус и подписка
     is_active = Column(Boolean, default=True, nullable=False)
