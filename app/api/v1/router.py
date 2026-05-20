@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin,
+    admin_bonuses,
     auth,
     analytics,
     blacklist,
@@ -25,6 +26,7 @@ api_router = APIRouter()
 # Include all endpoint routers
 api_router.include_router(auth.router, tags=["Auth"])
 api_router.include_router(admin.router, tags=["Admin"])
+api_router.include_router(admin_bonuses.router, tags=["AdminBonuses"])
 api_router.include_router(analytics.router, tags=["Analytics"])
 api_router.include_router(branches.router, tags=["Branches"])
 api_router.include_router(bonuses.router, tags=["Bonuses"])
