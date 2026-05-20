@@ -36,12 +36,14 @@ class BrandingResponse(APIModel):
     public_name: str | None = None
     public_city: str | None = None
     logo_url: str | None = None
+    website_url: str | None = None
 
 
 class BrandingUpdate(APIModel):
     public_name: str | None = None
     public_city: str | None = None
     logo_url: str | None = None
+    website_url: str | None = None
 
     @field_validator("logo_url")
     @classmethod

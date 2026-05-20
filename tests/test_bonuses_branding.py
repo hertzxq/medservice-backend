@@ -5,7 +5,12 @@ def test_get_branding_defaults_to_nulls(client, auth_headers):
     r = client.get("/api/v1/branches/1/branding", headers=auth_headers)
     assert r.status_code == 200
     body = r.json()
-    assert body == {"publicName": None, "publicCity": None, "logoUrl": None}
+    assert body == {
+        "publicName": None,
+        "publicCity": None,
+        "logoUrl": None,
+        "websiteUrl": None,
+    }
 
 
 def test_patch_branding_updates_fields(client, auth_headers):
