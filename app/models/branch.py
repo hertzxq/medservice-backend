@@ -2,7 +2,7 @@
 Branch model for clinic branches/locations.
 """
 
-from sqlalchemy import Boolean, Column, Date, Integer, String, Float, DateTime, JSON
+from sqlalchemy import Boolean, Column, Date, Integer, String, Float, DateTime, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -55,6 +55,11 @@ class Branch(Base):
     # URLs for review platforms (e.g. {"yandex_maps": "https://...", "2gis": "https://..."})
     platform_urls = Column(JSON, default=dict)
 
+    # Публичная брендовая шапка (показывается пациенту)
+    public_name = Column(String, nullable=True)
+    public_city = Column(String, nullable=True)
+    logo_url = Column(Text, nullable=True)  # data:image/png;base64,... or None
+
     # Статус и подписка
     is_active = Column(Boolean, default=True, nullable=False)
     paid_until = Column(Date, nullable=True)
@@ -73,6 +78,7 @@ class Branch(Base):
     requests = relationship("Request", back_populates="branch", cascade="all, delete-orphan")
     employees = relationship("Employee", back_populates="branch", cascade="all, delete-orphan")
     blacklist_users = relationship("BlacklistUser", back_populates="branch", cascade="all, delete-orphan")
+    bonuses = relationship("BranchBonus", back_populates="branch", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Branch(id={self.id}, name={self.name}, city={self.city})>"
