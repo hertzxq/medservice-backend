@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # App settings are loaded on import, so env vars must exist first.
+os.environ.setdefault("ENVIRONMENT", "test")  # relax SECRET_KEY strength check (C1)
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test_db")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("ALGORITHM", "HS256")

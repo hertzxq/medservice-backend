@@ -3,7 +3,9 @@ Pydantic schemas for feedback requests.
 """
 
 from datetime import datetime
-from pydantic import EmailStr
+from typing import Literal
+
+from pydantic import EmailStr, Field, field_validator
 
 from app.models.request import RequestStatusEnum
 from app.schemas.common import APIModel
@@ -55,3 +57,45 @@ class RequestCreateResponse(APIModel):
     status: RequestStatusEnum
     request_link: str | None
     sent_at: datetime
+
+
+# --- Public mini-app review flow (H4) ---------------------------------------
+
+
+class MiniRatingRequest(APIModel):
+    """Patient submits a star rating from the SMS mini-app."""
+
+    rating: int = Field(ge=1, le=5)
+
+
+class MiniPlatformLink(APIModel):
+    """A real review platform link for the patient's branch."""
+
+    platform: str
+    url: str
+
+
+class MiniRatingResponse(APIModel):
+    """Server decides complaint-vs-publish; the client must not."""
+
+    outcome: Literal["complaint", "publish"]
+    # Populated only for the publish path (rating > 3); empty for complaints.
+    platforms: list[MiniPlatformLink] = []
+
+
+class MiniComplaintRequest(APIModel):
+    """Patient's free-text complaint for a low rating."""
+
+    message: str
+
+    @field_validator("message")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("message must not be empty")
+        return stripped
+
+
+class MiniComplaintResponse(APIModel):
+    ok: bool = True

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, SessionLocal
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_superuser
 from app.models.user import User
 from app.models.branch import Branch
 from app.parsers.runner import run_parser, detect_platform, parse_by_branch
@@ -99,7 +99,11 @@ async def _run_parse_by_url(url: str, branch_id: int, headless: bool = True) -> 
     except Exception as exc:
         _parsing_state["status"] = "error"
         _parsing_state["last_run_at"] = datetime.utcnow().isoformat()
-        _parsing_state["last_result"] = {"error": str(exc)}
+        # Don't leak raw exception text (internal URLs/paths) to API clients;
+        # the full traceback is logged server-side below. (L5)
+        _parsing_state["last_result"] = {
+            "error": "Ошибка парсинга. Подробности в логах сервера."
+        }
         _parsing_state["running_info"] = None
         _parsing_state["progress"] = None
         logger.error("Ошибка парсинга по URL: %s", exc, exc_info=True)
@@ -181,10 +185,11 @@ async def _run_parse_by_branch(
 
         except Exception as exc:
             logger.error("❌ %s: %s", label, exc, exc_info=True)
+            # Generic client-facing message; real error is logged above. (L5)
             all_results["platforms_failed"].append({
                 "platform": platform,
                 "label": label,
-                "error": str(exc),
+                "error": "Не удалось обработать площадку. Подробности в логах сервера.",
             })
 
     _parsing_state["status"] = "completed"
@@ -197,17 +202,27 @@ async def _run_parse_by_branch(
 
 
 def _save_platform_url(branch_id: int, platform: str, url: str) -> None:
-    """Persist a discovered platform URL to the branch for future re-use."""
+    """Persist a discovered platform URL to the branch for future re-use.
+
+    Uses a context-managed session so the connection is always returned to the
+    pool and rolled back on error (L11 — previously db.close() was skipped when
+    the query/commit raised, leaking the connection).
+    """
     try:
-        db = SessionLocal()
-        branch = db.query(Branch).filter(Branch.id == branch_id).first()
-        if branch:
-            urls = dict(branch.platform_urls or {})
-            urls[platform] = url
-            branch.platform_urls = urls
-            db.commit()
-            logger.info("URL сохранён: branch=%d, %s → %s", branch_id, platform, url)
-        db.close()
+        with SessionLocal() as db:
+            try:
+                branch = db.query(Branch).filter(Branch.id == branch_id).first()
+                if branch:
+                    urls = dict(branch.platform_urls or {})
+                    urls[platform] = url
+                    branch.platform_urls = urls
+                    db.commit()
+                    logger.info(
+                        "URL сохранён: branch=%d, %s → %s", branch_id, platform, url
+                    )
+            except Exception:
+                db.rollback()
+                raise
     except Exception as exc:
         logger.warning("Не удалось сохранить URL площадки: %s", exc)
 
@@ -220,7 +235,7 @@ async def trigger_parsing_by_url(
     body: TriggerByUrlRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_superuser),
 ):
     """
     Ручной запуск парсинга отзывов по прямому URL площадки.
@@ -255,7 +270,7 @@ async def trigger_parsing_by_branch(
     body: TriggerByBranchRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_superuser),
 ):
     """
     Запуск парсинга отзывов по названию филиала.

@@ -3,11 +3,18 @@ Request model for feedback request tracking.
 """
 
 import enum
+import uuid
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+
+def _generate_public_token() -> str:
+    """Unguessable identifier for the patient mini-app (used in the SMS link)."""
+    return uuid.uuid4().hex
 
 
 class RequestStatusEnum(str, enum.Enum):
@@ -69,6 +76,13 @@ class Request(Base):
     # Request tracking
     status = Column(Enum(RequestStatusEnum), default=RequestStatusEnum.SENT, nullable=False, index=True)
     request_link = Column(String, nullable=True, unique=True)  # Уникальная ссылка для трекинга
+    # Unguessable token the patient mini-app uses to submit a rating/complaint (H4).
+    public_token = Column(
+        String, nullable=False, unique=True, index=True, default=_generate_public_token
+    )
+
+    # Patient's submitted star rating (1..5), recorded by the mini-app (H4).
+    rating = Column(Integer, nullable=True)
 
     # Связь с результатом
     review_id = Column(Integer, ForeignKey("reviews.id"), nullable=True)

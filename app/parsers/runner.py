@@ -7,13 +7,46 @@ from the medservice_parsers package.
 
 import re
 import sys
+import ipaddress
 import importlib
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .models import ParsedReview, ParsedBusiness, ParseResult
 
 logger = logging.getLogger(__name__)
+
+# Allowed schemes for any URL we hand to a headless browser.
+_ALLOWED_SCHEMES = {"http", "https"}
+
+# Exact registrable domains for platforms without regional TLDs. A host matches
+# when it equals the domain or is a subdomain of it.
+_EXACT_DOMAIN_PLATFORMS = (
+    ("2gis.ru", "2gis"),
+    ("2gis.com", "2gis"),
+    ("prodoctorov.ru", "prodoctorov"),
+    ("napopravku.ru", "napopravku"),
+)
+
+# Maps platforms use regional TLDs (yandex.by, google.com.tr, …) and require /maps.
+_YANDEX_HOST_RE = re.compile(r"(?:.+\.)?yandex\.[a-z]{2,}$")
+_GOOGLE_HOST_RE = re.compile(r"(?:.+\.)?google\.[a-z.]{2,}$")
+
+
+def _host_matches(host: str, domain: str) -> bool:
+    """True when *host* is exactly *domain* or a subdomain of it."""
+    return host == domain or host.endswith("." + domain)
+
+
+def _host_is_ip_literal(host: str) -> bool:
+    """True when *host* is a raw IP literal (we only ever allow named domains)."""
+    candidate = host.strip("[]")  # IPv6 in URLs is bracketed
+    try:
+        ipaddress.ip_address(candidate)
+        return True
+    except ValueError:
+        return False
 
 # Add medservice_parsers to sys.path so we can import it at runtime.
 _PARSERS_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "medservice_parsers"
@@ -22,22 +55,40 @@ if str(_PARSERS_ROOT) not in sys.path:
 
 
 def detect_platform(url: str) -> str:
-    """Detect the review platform from a URL string.
+    """Detect the review platform from a URL string (SSRF-hardened, H3).
+
+    Matches on the parsed *hostname* (not a substring), requires an http/https
+    scheme, and rejects raw-IP hosts. This prevents smuggling an internal or
+    cloud-metadata target past the allow-list while still containing a platform
+    keyword, e.g. http://169.254.169.254/maps?x=yandex.ru or
+    file:///etc/passwd#prodoctorov.ru.
 
     Returns one of: yandex_maps, google_maps, 2gis, prodoctorov, napopravku, other.
     """
-    url_lower = url.lower()
-    # Yandex may redirect to regional TLDs: yandex.md, yandex.by, yandex.kz etc.
-    if re.search(r"yandex\.\w+/maps", url_lower):
+    try:
+        parsed = urlparse((url or "").strip())
+    except ValueError:
+        return "other"
+
+    if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
+        return "other"
+
+    host = (parsed.hostname or "").lower()
+    if not host or _host_is_ip_literal(host):
+        return "other"
+
+    path = parsed.path.lower()
+
+    # Maps platforms: regional TLDs + a /maps path segment.
+    if _YANDEX_HOST_RE.match(host) and "/maps" in path:
         return "yandex_maps"
-    if re.search(r"google\.\w+/maps", url_lower):
+    if _GOOGLE_HOST_RE.match(host) and "/maps" in path:
         return "google_maps"
-    if "2gis.ru" in url_lower or "2gis.com" in url_lower:
-        return "2gis"
-    if "prodoctorov.ru" in url_lower:
-        return "prodoctorov"
-    if "napopravku.ru" in url_lower:
-        return "napopravku"
+
+    for domain, platform in _EXACT_DOMAIN_PLATFORMS:
+        if _host_matches(host, domain):
+            return platform
+
     return "other"
 
 

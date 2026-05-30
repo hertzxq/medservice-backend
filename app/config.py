@@ -6,10 +6,18 @@ Loads environment variables from .env file.
 import json
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Environments where a weak/placeholder SECRET_KEY is tolerated (local convenience).
+_RELAXED_ENVIRONMENTS = {"development", "dev", "local", "test", "testing"}
+
+# Substrings that mark a non-secret placeholder value.
+_SECRET_PLACEHOLDERS = ("change_this", "replace_me", "your-secret", "changeme")
+
+MIN_SECRET_KEY_LEN = 32
 
 
 class Settings(BaseSettings):
@@ -67,6 +75,36 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
         return value
+
+    @model_validator(mode="after")
+    def _enforce_strong_secret_in_production(self) -> "Settings":
+        """Refuse to boot a non-dev environment with a weak/placeholder SECRET_KEY (C1).
+
+        Local/dev/test keep booting with the placeholder for convenience; any other
+        environment (production, staging, …) must supply a real key.
+        """
+        if self.environment.lower() in _RELAXED_ENVIRONMENTS:
+            return self
+
+        key = self.secret_key or ""
+        lowered = key.lower()
+        if len(key) < MIN_SECRET_KEY_LEN or any(
+            p in lowered for p in _SECRET_PLACEHOLDERS
+        ):
+            raise ValueError(
+                "SECRET_KEY is a placeholder or too short for "
+                f"environment='{self.environment}'. Generate one with "
+                "`openssl rand -hex 32` and set it via the environment."
+            )
+
+        # CORS '*' is unsafe with allow_credentials=True (credentialed
+        # cross-origin reads from any site); forbid it outside dev. (L6)
+        if "*" in self.cors_origins:
+            raise ValueError(
+                "CORS_ORIGINS must not contain '*' when credentials are allowed; "
+                "list explicit origins instead."
+            )
+        return self
 
 
 settings = Settings()
