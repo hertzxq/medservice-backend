@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_branch_access
 from app.models.user import User
 from app.models.blacklist import BlacklistUser
 from app.models.branch import Branch
@@ -24,6 +24,7 @@ async def get_blacklist(
     """
     Get list of blacklisted users for a branch.
     """
+    require_branch_access(branch_id, current_user, db)
     users = db.query(BlacklistUser).filter(BlacklistUser.branch_id == branch_id).all()
     return [BlacklistUserResponse.model_validate(u) for u in users]
 
@@ -37,10 +38,10 @@ async def create_blacklist_user(
 ):
     """
     Add a new user to the blacklist for a branch.
-    Доступно любому авторизованному пользователю в рамках выбранного филиала.
+    Доступно любому авторизованному пользователю в рамках доступного филиала.
     """
-    branch = db.query(Branch).filter(Branch.id == branch_id).first()
-    if not branch:
+    require_branch_access(branch_id, current_user, db)
+    if not db.query(Branch.id).filter(Branch.id == branch_id).first():
         raise HTTPException(status_code=404, detail="Branch not found")
 
     blacklist_user = BlacklistUser(
@@ -70,6 +71,7 @@ async def update_blacklist_user(
     user = db.query(BlacklistUser).filter(BlacklistUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found in blacklist")
+    require_branch_access(user.branch_id, current_user, db)
 
     update_data = user_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -93,6 +95,7 @@ async def delete_blacklist_user(
     user = db.query(BlacklistUser).filter(BlacklistUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found in blacklist")
+    require_branch_access(user.branch_id, current_user, db)
 
     db.delete(user)
     db.commit()

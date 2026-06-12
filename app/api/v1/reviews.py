@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import (
+    accessible_branch_ids,
+    get_current_user,
+    require_branch_access,
+)
 from app.models.user import User
 from app.models.review import PlatformEnum, Review
 from app.schemas.review import ReviewsListResponse, ReviewResponse
@@ -57,8 +61,15 @@ def get_reviews(
 
     query = db.query(Review).options(joinedload(Review.branch))
 
+    # Multi-tenancy: a specific branch must be accessible; without one, a
+    # non-superuser is implicitly scoped to their assigned branches.
     if branch_filter is not None:
+        require_branch_access(branch_filter, current_user, db)
         query = query.filter(Review.branch_id == branch_filter)
+    else:
+        allowed = accessible_branch_ids(current_user)
+        if allowed is not None:
+            query = query.filter(Review.branch_id.in_(allowed))
     if platform:
         query = query.filter(Review.platform == platform)
     if min_rating_filter is not None:

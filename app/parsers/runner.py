@@ -9,16 +9,23 @@ import re
 import sys
 import importlib
 import logging
-from pathlib import Path
 
 from .models import ParsedReview, ParsedBusiness, ParseResult
+from .paths import find_parsers_root
 
 logger = logging.getLogger(__name__)
 
-# Add medservice_parsers to sys.path so we can import it at runtime.
-_PARSERS_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "medservice_parsers"
-if str(_PARSERS_ROOT) not in sys.path:
+# Add the medservice_parsers package to sys.path so we can import it at runtime.
+# The directory may be named `medservice_parsers` (prod) or `parsers` (local
+# clone) — resolve whichever is present (see app/parsers/paths.py).
+_PARSERS_ROOT = find_parsers_root()
+if _PARSERS_ROOT is not None and str(_PARSERS_ROOT) not in sys.path:
     sys.path.insert(0, str(_PARSERS_ROOT))
+elif _PARSERS_ROOT is None:
+    logger.warning(
+        "medservice_parsers directory not found next to medservice-backend; "
+        "parsing will fail until the parsers package is present."
+    )
 
 
 def detect_platform(url: str) -> str:
@@ -74,8 +81,8 @@ async def run_parser(url: str, headless: bool = True) -> ParseResult:
         raw = await parser.parse_by_url(url)
 
     elif platform == "napopravku":
-        from napopravku_reviews.parser import NapopravkuReviewsParser  # type: ignore[import-untyped]
-        parser = NapopravkuReviewsParser(headless=headless)
+        from napopravku_reviews.parser import NapopravkuParser  # type: ignore[import-untyped]
+        parser = NapopravkuParser(headless=headless)
         raw = await parser.parse_by_url(url)
 
     else:

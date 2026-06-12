@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # App settings are loaded on import, so env vars must exist first.
+os.environ.setdefault("ENVIRONMENT", "test")  # exempt from production hardening guard
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test_db")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("ALGORITHM", "HS256")
@@ -76,6 +77,11 @@ def seed_data(session) -> None:
         nps_score=45,
     )
     session.add_all([branch_1, branch_2])
+    session.flush()
+
+    # Non-superuser is granted access to both seeded branches (multi-tenancy).
+    # Tests that assert cross-tenant isolation use a separate, unassigned branch.
+    regular.branches = [branch_1, branch_2]
     session.flush()
 
     reviews = [

@@ -73,7 +73,23 @@ async def get_current_user(
     return user
 
 
-async def get_current_superuser(current_user = Depends(get_current_user)):
+async def get_token_payload(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """Return the decoded JWT claims for the current request."""
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный токен",
+        )
+    return payload
+
+
+async def get_current_superuser(
+    current_user=Depends(get_current_user),
+    payload: dict = Depends(get_token_payload),
+):
     """
     FastAPI dependency для проверки прав суперпользователя.
 
@@ -84,11 +100,45 @@ async def get_current_superuser(current_user = Depends(get_current_user)):
         User: Current superuser
 
     Raises:
-        HTTPException: 403 if user is not a superuser
+        HTTPException: 403 if user is not a superuser, or if this is an
+            impersonation token (which must never reach privileged routes).
     """
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Недостаточно прав",
         )
+    # An impersonation token carries the TARGET user's `sub`; it must not be
+    # usable to reach superuser routes (re-impersonate, manage users, etc.).
+    if payload.get("typ") == "impersonation":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Действие недоступно в режиме просмотра аккаунта",
+        )
     return current_user
+
+
+def accessible_branch_ids(user) -> set[int] | None:
+    """Branch ids `user` may access; ``None`` means ALL (superuser).
+
+    Use the None sentinel to skip branch filtering for superusers entirely.
+    """
+    if user.is_superuser:
+        return None
+    return {b.id for b in user.branches}
+
+
+def require_branch_access(branch_id: int, user, db=None) -> None:
+    """Authorize `user` for `branch_id` (membership check), else raise 404.
+
+    Multi-tenancy guard: superusers may touch any branch; a non-superuser may
+    only touch branches assigned to them. For a non-member the response is 404
+    (same as a missing branch) so branch-id existence isn't disclosed across
+    tenants. Existence of the branch itself is the endpoint's concern (list
+    endpoints return empty; detail endpoints 404) — this helper only authorizes.
+    """
+    if user.is_superuser:
+        return
+
+    if branch_id not in {b.id for b in user.branches}:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Филиал не найден")

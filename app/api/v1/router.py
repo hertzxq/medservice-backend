@@ -16,6 +16,8 @@ from app.api.v1 import (
     employees,
     blacklist,
     parsing,
+    public,
+    bonuses,
 )
 
 # Create main API router
@@ -32,3 +34,5 @@ api_router.include_router(requests.router, tags=["Requests"])
 api_router.include_router(employees.router, tags=["Employees"])
 api_router.include_router(blacklist.router, tags=["Blacklist"])
 api_router.include_router(parsing.router, tags=["Parsing"])
+api_router.include_router(public.router, tags=["Public"])
+api_router.include_router(bonuses.router, tags=["Bonuses"])

@@ -10,11 +10,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, SessionLocal
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_superuser
 from app.models.user import User
 from app.models.branch import Branch
 from app.parsers.runner import run_parser, detect_platform, parse_by_branch
 from app.parsers.service import save_parse_result
+from app.services.review_match import match_branch_reviews
 from app.parsers.compat import run_in_playwright_loop
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,8 @@ async def _run_parse_by_url(url: str, branch_id: int, headless: bool = True) -> 
         db = SessionLocal()
         try:
             summary = save_parse_result(db, result, branch_id)
+            # Newly-parsed reviews may confirm pending patient publish-claims.
+            summary["verified_claims"] = match_branch_reviews(db, branch_id).get("verified", 0)
         finally:
             db.close()
 
@@ -164,6 +167,7 @@ async def _run_parse_by_branch(
             db = SessionLocal()
             try:
                 summary = save_parse_result(db, result, branch_id)
+                match_branch_reviews(db, branch_id)  # verify pending publish-claims
             finally:
                 db.close()
 
@@ -220,7 +224,7 @@ async def trigger_parsing_by_url(
     body: TriggerByUrlRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(get_current_superuser),
 ):
     """
     Ручной запуск парсинга отзывов по прямому URL площадки.
@@ -255,7 +259,7 @@ async def trigger_parsing_by_branch(
     body: TriggerByBranchRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(get_current_superuser),
 ):
     """
     Запуск парсинга отзывов по названию филиала.

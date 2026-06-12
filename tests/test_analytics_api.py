@@ -57,8 +57,22 @@ def test_get_branch_dashboard_returns_extended_metrics(client, auth_headers):
     assert len(data["npsLarge"]) == 30
     assert data["employees"] == []
 
+    # Лента отзывов показывает только негатив (оценка <= 3); в 30-дневном
+    # периоде у филиала 1 есть лишь 5-звёздочный отзыв — лента пуста.
+    assert data["recentReviews"] == []
+
+
+def test_get_branch_dashboard_recent_reviews_only_negative(client, auth_headers):
+    response = client.get("/api/v1/analytics/1/dashboard?period=90", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # За 90 дней у филиала 1 два отзыва (5★ и 3★) — в ленту попадает только 3★.
+    assert data["reviews"] == 2
     assert len(data["recentReviews"]) == 1
-    assert data["recentReviews"][0]["platformLabel"] == "Яндекс.Карты"
+    assert data["recentReviews"][0]["rating"] == 3
+    assert data["recentReviews"][0]["platformLabel"] == "Google Maps"
 
 
 def test_to_utc_naive_converts_offset_aware_datetime():

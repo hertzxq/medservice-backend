@@ -94,7 +94,9 @@ def test_non_superuser_can_delete_blacklist(client, user_auth_headers, auth_head
     assert response.status_code == 204
 
 
-def test_non_superuser_cannot_create_request(client, user_auth_headers):
+def test_non_superuser_can_create_request_for_own_branch(client, user_auth_headers):
+    """Запрос на отзыв отправляет клиника со страницы «Запросить отзывы» —
+    доступно обычному пользователю, но только для его филиалов."""
     response = client.post(
         "/api/v1/requests",
         json={
@@ -102,6 +104,42 @@ def test_non_superuser_cannot_create_request(client, user_auth_headers):
             "clientName": "Клиент",
             "clientPhone": "+79998887766",
         },
+        headers=user_auth_headers,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    # Результат SMS возвращается фронту, чтобы он не показывал ложный успех.
+    assert "sms" in body
+
+
+def test_non_superuser_cannot_create_request_for_foreign_branch(
+    client, user_auth_headers, auth_headers
+):
+    created = client.post(
+        "/api/v1/branches",
+        json={"name": "Чужой филиал"},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201
+    foreign_id = created.json()["id"]
+
+    response = client.post(
+        "/api/v1/requests",
+        json={
+            "branchId": foreign_id,
+            "clientName": "Клиент",
+            "clientPhone": "+79998887766",
+        },
+        headers=user_auth_headers,
+    )
+    # Чужой филиал не раскрываем — 404, как и остальные branch-scoped ручки.
+    assert response.status_code == 404
+
+
+def test_non_superuser_cannot_send_test_sms(client, user_auth_headers):
+    response = client.post(
+        "/api/v1/requests/test-sms?branchId=1",
+        json={"phone": "+79998887766"},
         headers=user_auth_headers,
     )
     assert response.status_code == 403

@@ -2,7 +2,7 @@
 Pydantic schemas for authentication.
 """
 
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
 from app.schemas.common import APIModel
 
@@ -31,6 +31,9 @@ class UserResponse(APIModel):
     role: str | None
     is_active: bool
     is_superuser: bool
+    # Assigned branch ids (multi-tenancy). Populated by the admin endpoints;
+    # defaults to [] elsewhere (the dashboard gets branches via GET /branches).
+    branch_ids: list[int] = []
 
 
 class UserUpdate(APIModel):
@@ -40,6 +43,8 @@ class UserUpdate(APIModel):
     email: str | None = None
     phone: str | None = None
     role: str | None = None
+    # Опционально: новый пароль (хэшируется в update_me, не присваивается setattr).
+    password: str | None = Field(default=None, min_length=8, max_length=72)
 
 
 class LoginResponse(APIModel):

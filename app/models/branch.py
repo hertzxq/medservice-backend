@@ -2,11 +2,24 @@
 Branch model for clinic branches/locations.
 """
 
-from sqlalchemy import Boolean, Column, Date, Integer, String, Float, DateTime, JSON
+from sqlalchemy import (
+    Boolean, Column, Date, Integer, String, Float, DateTime, JSON, ForeignKey, Table,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+
+# Which branches a (non-superuser) user is allowed to access. Superusers bypass
+# this entirely (see app.core.dependencies.require_branch_access). Defined here
+# because branch.py has no import dependency on user.py (avoids a cycle).
+user_branches = Table(
+    "user_branches",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("branch_id", Integer, ForeignKey("branches.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Branch(Base):
@@ -55,6 +68,11 @@ class Branch(Base):
     # URLs for review platforms (e.g. {"yandex_maps": "https://...", "2gis": "https://..."})
     platform_urls = Column(JSON, default=dict)
 
+    # SMS-рассылка запросов на отзыв (sms.ru)
+    sms_enabled = Column(Boolean, default=True, nullable=False)
+    sms_template = Column(String, default="Оцените визит: {link}")
+    sms_monthly_limit = Column(Integer, default=150)
+
     # Статус и подписка
     is_active = Column(Boolean, default=True, nullable=False)
     paid_until = Column(Date, nullable=True)
@@ -73,6 +91,9 @@ class Branch(Base):
     requests = relationship("Request", back_populates="branch", cascade="all, delete-orphan")
     employees = relationship("Employee", back_populates="branch", cascade="all, delete-orphan")
     blacklist_users = relationship("BlacklistUser", back_populates="branch", cascade="all, delete-orphan")
+    branch_bonuses = relationship("BranchBonus", back_populates="branch", cascade="all, delete-orphan")
+    # Users granted access to this branch (non-superusers). Many-to-many.
+    users = relationship("User", secondary=user_branches, back_populates="branches")
 
     def __repr__(self) -> str:
         return f"<Branch(id={self.id}, name={self.name}, city={self.city})>"

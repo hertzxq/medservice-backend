@@ -7,7 +7,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, get_current_superuser
+from app.core.dependencies import (
+    accessible_branch_ids,
+    get_current_user,
+    get_current_superuser,
+)
 from app.models.employee import Employee
 from app.models.user import User
 from app.models.branch import Branch
@@ -28,8 +32,13 @@ async def get_branches(
 
     Returns:
         BranchesListResponse with branches list and total count
+        (non-superusers see only the branches assigned to them).
     """
-    branches = db.query(Branch).all()
+    allowed = accessible_branch_ids(current_user)
+    query = db.query(Branch)
+    if allowed is not None:
+        query = query.filter(Branch.id.in_(allowed))
+    branches = query.all()
 
     counts = dict(
         db.query(Employee.branch_id, func.count(Employee.id))
@@ -79,7 +88,7 @@ async def update_branch(
     branch_id: int,
     branch_update: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(get_current_superuser),
 ):
     """
     Update branch settings.

@@ -2,15 +2,18 @@
 Admin endpoints: user management (superuser only).
 """
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_superuser
-from app.core.security import get_password_hash
+from app.core.security import create_access_token, get_password_hash
+from app.models.branch import Branch
 from app.models.user import User
-from app.schemas.auth import UserResponse
+from app.schemas.auth import LoginResponse, UserResponse
 from app.schemas.common import APIModel
 
 router = APIRouter(prefix="/admin")
@@ -19,11 +22,13 @@ router = APIRouter(prefix="/admin")
 class AdminUserCreate(APIModel):
     username: str
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)
     full_name: str | None = None
     phone: str | None = None
     role: str | None = None
     is_superuser: bool = False
+    # Branches this (non-superuser) user may access. Superusers ignore it.
+    branch_ids: list[int] = []
 
 
 class AdminUserUpdate(APIModel):
@@ -33,6 +38,27 @@ class AdminUserUpdate(APIModel):
     role: str | None = None
     is_active: bool | None = None
     is_superuser: bool | None = None
+    # When provided, REPLACES the user's branch assignments.
+    branch_ids: list[int] | None = None
+
+
+def _resolve_branches(db: Session, branch_ids: list[int]) -> list[Branch]:
+    """Validate that every id exists; return the Branch rows."""
+    if not branch_ids:
+        return []
+    branches = db.query(Branch).filter(Branch.id.in_(branch_ids)).all()
+    found = {b.id for b in branches}
+    missing = [bid for bid in branch_ids if bid not in found]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Филиалы не найдены: {missing}")
+    return branches
+
+
+def _admin_user_response(user: User) -> UserResponse:
+    """UserResponse with the user's assigned branch ids attached."""
+    resp = UserResponse.model_validate(user)
+    resp.branch_ids = [b.id for b in user.branches]
+    return resp
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -41,7 +67,7 @@ async def list_users(
     _: User = Depends(get_current_superuser),
 ):
     """List all users (superuser only)."""
-    return [UserResponse.model_validate(u) for u in db.query(User).all()]
+    return [_admin_user_response(u) for u in db.query(User).all()]
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -65,10 +91,11 @@ async def create_user(
         role=payload.role,
         is_superuser=payload.is_superuser,
     )
+    user.branches = _resolve_branches(db, payload.branch_ids)
     db.add(user)
     db.commit()
     db.refresh(user)
-    return UserResponse.model_validate(user)
+    return _admin_user_response(user)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -83,12 +110,56 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    branch_ids = data.pop("branch_ids", None)  # relationship, not a column
+    for key, value in data.items():
         setattr(user, key, value)
+    if branch_ids is not None:
+        user.branches = _resolve_branches(db, branch_ids)
 
     db.commit()
     db.refresh(user)
-    return UserResponse.model_validate(user)
+    return _admin_user_response(user)
+
+
+IMPERSONATION_TTL = timedelta(minutes=30)
+
+
+@router.post("/users/{user_id}/impersonate", response_model=LoginResponse)
+async def impersonate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    """Issue a short-lived, restricted access token for another user (superuser only).
+
+    Lets the admin open the regular cabinet as that user. The token is marked
+    `typ=impersonation` and carries `imp` (the admin's id) for traceability; it
+    is rejected on superuser-gated routes (see get_current_superuser) so it
+    cannot be used to re-impersonate or reach the admin panel, and it expires
+    after a short window instead of inheriting the full login lifetime.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Пользователь неактивен")
+    # Don't let impersonation be used to step into ANOTHER superuser's account.
+    if user.is_superuser and user.id != current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Нельзя войти в аккаунт другого администратора",
+        )
+
+    access_token = create_access_token(
+        data={"sub": str(user.id), "imp": current_user.id, "typ": "impersonation"},
+        expires_delta=IMPERSONATION_TTL,
+    )
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -17,7 +17,7 @@ alembic upgrade head
 echo "[entrypoint] starting gunicorn"
 exec gunicorn app.main:app \
     --worker-class uvicorn.workers.UvicornWorker \
-    --workers "${GUNICORN_WORKERS:-2}" \
+    --workers "${GUNICORN_WORKERS:-1}" \
     --bind 0.0.0.0:8000 \
     --access-logfile - \
     --error-logfile - \

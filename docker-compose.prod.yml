@@ -19,6 +19,7 @@ services:
     build:
       context: ..
       dockerfile: medservice-backend/Dockerfile
+    image: medservice-backend:prod
     container_name: medservice_backend
     depends_on:
       postgres:
@@ -29,7 +30,48 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
     ports:
-      - "10.0.0.6:8000:8000"
+      # Bind to the private interface so the API is reachable by the edge Caddy
+      # but not the public internet. Set BACKEND_BIND_IP in .env to this host's
+      # private IP (compose fails to start if the IP doesn't exist on the host).
+      - "${BACKEND_BIND_IP:-10.0.0.6}:8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # Review-verification scheduler: periodically re-scrapes platforms and flips
+  # pending publish-claims to verified (and stale ones to not_found). Reuses the
+  # backend image (it has the parsers venv + playwright browsers). Without this,
+  # the verification gate never opens in production.
+  verify:
+    image: medservice-backend:prod
+    container_name: medservice_verify
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    # Override the API entrypoint: run the scrape+match loop instead of gunicorn.
+    entrypoint: []
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "[verify] scheduler started (every ${VERIFY_INTERVAL_SECONDS:-1800}s)";
+        # Give the backend time to apply migrations on first boot.
+        sleep 30;
+        while true; do
+          python scripts/verify_reviews.py --scrape || echo "[verify] run failed (will retry)";
+          sleep "${VERIFY_INTERVAL_SECONDS:-1800}";
+        done
     restart: unless-stopped
 
 volumes:

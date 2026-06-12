@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import (
+    accessible_branch_ids,
+    get_current_user,
+    require_branch_access,
+)
 from app.models.user import User
 from app.models.complaint import Complaint
 from app.schemas.complaint import ComplaintsListResponse, ComplaintResponse, ComplaintUpdateRequest
@@ -29,8 +33,14 @@ def get_complaints(
 
     query = db.query(Complaint).options(joinedload(Complaint.branch))
 
+    # Multi-tenancy: accessible branch required; otherwise scope to user's branches.
     if branch_filter is not None:
+        require_branch_access(branch_filter, current_user, db)
         query = query.filter(Complaint.branch_id == branch_filter)
+    else:
+        allowed = accessible_branch_ids(current_user)
+        if allowed is not None:
+            query = query.filter(Complaint.branch_id.in_(allowed))
     if resolved is not None:
         query = query.filter(Complaint.resolved == resolved)
 
@@ -58,6 +68,8 @@ def update_complaint(
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Жалоба не найдена")
+    # Multi-tenancy: only act on complaints of a branch the user may access.
+    require_branch_access(complaint.branch_id, current_user, db)
 
     complaint.resolved = request.resolved
     db.commit()

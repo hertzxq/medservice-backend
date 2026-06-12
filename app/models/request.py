@@ -32,6 +32,7 @@ class Request(Base):
         client_phone: Телефон клиента
         client_email: Email клиента (optional)
         status: Текущий статус запроса (enum)
+        rating: Оценка пациента 1..5 (optional, проставляется при submit_rating)
         request_link: Уникальная ссылка для трекинга (optional)
         review_id: Связь с итоговым отзывом (optional)
         complaint_id: Связь с итоговой жалобой (optional)
@@ -70,9 +71,25 @@ class Request(Base):
     status = Column(Enum(RequestStatusEnum), default=RequestStatusEnum.SENT, nullable=False, index=True)
     request_link = Column(String, nullable=True, unique=True)  # Уникальная ссылка для трекинга
 
+    # Оценка, поставленная пациентом (1..5). Заполняется в submit_rating.
+    # Для жалоб (rating <= COMPLAINT_RATING_THRESHOLD) переносится в Complaint.rating,
+    # поэтому реальная оценка больше не теряется между rating- и complaint-запросами.
+    rating = Column(Integer, nullable=True)
+
     # Связь с результатом
     review_id = Column(Integer, ForeignKey("reviews.id"), nullable=True)
     complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=True)
+
+    # Подтверждение публикации отзыва (publish-путь).
+    # Пациент заявляет, что оставил отзыв, и сообщает ключ для сверки
+    # (имя на площадке и/или текст отзыва). Парсер-матчер потом сверяет это
+    # с реально распарсенными отзывами и проставляет review_id + verified_at.
+    claimed_platform = Column(String, nullable=True)         # slug площадки из заявки
+    review_claim_name = Column(String, nullable=True)        # имя, под которым оставлен отзыв
+    review_claim_text = Column(String, nullable=True)        # текст отзыва (для сверки)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verification_status = Column(String, nullable=True)      # pending | verified | not_found
 
     # Timestamps
     sent_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

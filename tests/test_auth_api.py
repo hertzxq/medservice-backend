@@ -142,3 +142,28 @@ def test_create_request_requires_superuser(client, auth_headers):
     )
 
     assert response.status_code == 201
+
+
+def test_update_me_changes_password_and_profile(client, user_auth_headers):
+    response = client.patch(
+        "/api/v1/auth/me",
+        headers=user_auth_headers,
+        json={"fullName": "Новое Имя", "phone": "+79995554433", "password": "newpass9876"},
+    )
+    assert response.status_code == 200
+    assert response.json()["fullName"] == "Новое Имя"
+
+    # Старый пароль больше не подходит, новый — работает.
+    old = client.post("/api/v1/auth/login", json={"username": "user", "password": "password123"})
+    assert old.status_code == 401
+    new = client.post("/api/v1/auth/login", json={"username": "user", "password": "newpass9876"})
+    assert new.status_code == 200
+
+
+def test_update_me_rejects_taken_email(client, user_auth_headers):
+    response = client.patch(
+        "/api/v1/auth/me",
+        headers=user_auth_headers,
+        json={"email": "admin@medservice.com"},
+    )
+    assert response.status_code == 400

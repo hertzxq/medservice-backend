@@ -11,7 +11,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import (
+    accessible_branch_ids,
+    get_current_user,
+    require_branch_access,
+)
 from app.models.branch import Branch
 from app.models.complaint import Complaint
 from app.models.request import Request
@@ -381,6 +385,10 @@ def get_branches_analytics(
             Review.branch_id,
             func.count(Review.id).label("reviews_count"),
             func.avg(Review.rating).label("avg_rating"),
+            # NPS-полосы (5★ промоутер, ≤3★ детрактор) — те же пороги, что
+            # is_promoter/is_detractor в дашборде, чтобы цифры совпадали.
+            func.sum(case((Review.rating == 5, 1), else_=0)).label("promoters"),
+            func.sum(case((Review.rating <= 3, 1), else_=0)).label("detractors"),
         )
         .filter(Review.published_at >= start_date)
         .group_by(Review.branch_id)
@@ -397,21 +405,33 @@ def get_branches_analytics(
         .subquery()
     )
 
-    results = (
+    branches_query = (
         db.query(
             Branch.id,
             Branch.name,
-            Branch.nps_score,
             func.coalesce(requests_sub.c.requests_count, 0).label("requests"),
             func.coalesce(reviews_sub.c.reviews_count, 0).label("new_reviews"),
             func.coalesce(complaints_sub.c.complaints_count, 0).label("intercepted_complaints"),
             func.coalesce(reviews_sub.c.avg_rating, 0.0).label("avg_rating"),
+            func.coalesce(reviews_sub.c.promoters, 0).label("promoters"),
+            func.coalesce(reviews_sub.c.detractors, 0).label("detractors"),
         )
         .outerjoin(requests_sub, Branch.id == requests_sub.c.branch_id)
         .outerjoin(reviews_sub, Branch.id == reviews_sub.c.branch_id)
         .outerjoin(complaints_sub, Branch.id == complaints_sub.c.branch_id)
-        .all()
     )
+    # Multi-tenancy: non-superusers see only their assigned branches.
+    allowed = accessible_branch_ids(current_user)
+    if allowed is not None:
+        branches_query = branches_query.filter(Branch.id.in_(allowed))
+    results = branches_query.all()
+
+    def _nps(total: int, promoters: int, detractors: int) -> int:
+        # NPS считается на лету из отзывов периода (Branch.nps_score —
+        # неживая кэш-колонка, которую никто не пересчитывает, всегда 0).
+        if not total:
+            return 0
+        return int(round(((promoters - detractors) / total) * 100))
 
     rows = [
         BranchAnalyticsRow(
@@ -421,7 +441,7 @@ def get_branches_analytics(
             new_reviews=row.new_reviews,
             intercepted_complaints=row.intercepted_complaints,
             avg_rating=round(float(row.avg_rating), 1),
-            nps=row.nps_score,
+            nps=_nps(row.new_reviews, row.promoters, row.detractors),
         )
         for row in results
     ]
@@ -439,6 +459,7 @@ def get_branch_analytics_dashboard(
     current_user: User = Depends(get_current_user),
 ):
     """Get extended analytics payload for dashboard widgets."""
+    require_branch_access(branch_id, current_user, db)
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
     if not branch:
         raise HTTPException(status_code=404, detail="Филиал не найден")
@@ -484,6 +505,10 @@ def get_branch_analytics_dashboard(
     nps_large = build_nps_series(period_reviews, start_date, end_date, points=30)
     employees = build_employee_rows(period_reviews)
 
+    # Правая колонка дашборда показывает только негатив (оценка <= 3).
+    negative_reviews = [
+        review for review in period_reviews if is_detractor(review.rating)
+    ]
     recent_reviews = [
         AnalyticsReviewFeedItem(
             id=review.id,
@@ -494,7 +519,7 @@ def get_branch_analytics_dashboard(
             platform_label=PLATFORM_LABELS.get(review.platform, "Другое"),
             published_at=review.published_at,
         )
-        for review in period_reviews[:12]
+        for review in negative_reviews[:12]
     ]
 
     return AnalyticsDashboardResponse(
@@ -531,9 +556,10 @@ def get_branch_analytics(
     Returns:
         AnalyticsResponse with sent, reviews, complaints, avgRating
     """
-    # Check if branch exists
-    branch = db.query(Branch).filter(Branch.id == branch_id).first()
-    if not branch:
+    # Multi-tenancy: 404 if the user can't access this branch (non-member) or
+    # the branch doesn't exist.
+    require_branch_access(branch_id, current_user, db)
+    if not db.query(Branch.id).filter(Branch.id == branch_id).first():
         raise HTTPException(status_code=404, detail="Филиал не найден")
 
     start_date, _ = resolve_range(period, start, end)
