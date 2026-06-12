@@ -15,7 +15,8 @@ RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 RUN apt-get update && apt-get install -y --no-install-recommends xvfb \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 appuser
+# UID 1000 занят встроенным пользователем ubuntu в noble-базе — берём свободный.
+RUN useradd -m -u 10001 appuser
 
 WORKDIR /app/medservice-backend
 
