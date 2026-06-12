@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
 # xvfb: виртуальный дисплей для headful-парсинга Google на headless-сервере
 # (verify_reviews.py заворачивает google-парс в xvfb-run, если он есть).
-RUN apt-get update && apt-get install -y --no-install-recommends xvfb \
+# python3-venv: в noble-базе системный python без ensurepip — нужен для venv парсеров.
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb python3-venv \
  && rm -rf /var/lib/apt/lists/*
 
 # UID 1000 занят встроенным пользователем ubuntu в noble-базе — берём свободный.
