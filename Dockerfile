@@ -13,8 +13,11 @@ RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 # xvfb: виртуальный дисплей для headful-парсинга Google на headless-сервере
 # (verify_reviews.py заворачивает google-парс в xvfb-run, если он есть).
 # python3-venv: в noble-базе системный python без ensurepip — нужен для venv парсеров.
+# Пакет заодно возвращает PEP668-маркер EXTERNALLY-MANAGED, который запрещает
+# poetry/pip ставить в системный python — в контейнере он не нужен, удаляем.
 RUN apt-get update && apt-get install -y --no-install-recommends xvfb python3-venv \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /usr/lib/python3*/EXTERNALLY-MANAGED
 
 # UID 1000 занят встроенным пользователем ubuntu в noble-базе — берём свободный.
 RUN useradd -m -u 10001 appuser
