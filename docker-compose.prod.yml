@@ -29,11 +29,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-    ports:
-      # Bind to the private interface so the API is reachable by the edge Caddy
-      # but not the public internet. Set BACKEND_BIND_IP in .env to this host's
-      # private IP (compose fails to start if the IP doesn't exist on the host).
-      - "${BACKEND_BIND_IP:-10.0.0.6}:8000:8000"
+    # Порт 8000 на хост НЕ публикуется: снаружи API доступен только через
+    # caddy (TLS на API_DOMAIN), внутри compose-сети caddy ходит на backend:8000.
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)\""]
@@ -74,6 +71,30 @@ services:
         done
     restart: unless-stopped
 
+  # TLS для API на этом же сервере (между серверами нет приватной сети, поэтому
+  # токены/телефоны не должны ходить открытым HTTP). DNS API_DOMAIN -> этот хост.
+  caddy:
+    image: caddy:2-alpine
+    container_name: medservice_api_caddy
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   postgres_data:
     name: medservice_postgres_prod_data
+  caddy_data:
+    name: medservice_api_caddy_data
+  caddy_config:
+    name: medservice_api_caddy_config

@@ -27,6 +27,15 @@ if grep -qiE '^SECRET_KEY=.*(REPLACE|CHANGE|example)' .env; then
     echo "[deploy] ERROR: SECRET_KEY in .env is still a placeholder (openssl rand -hex 32)." >&2
     exit 1
 fi
+# Caddy на этом сервере терминирует TLS для API — домен и ACME-почта обязательны.
+if ! grep -qE '^API_DOMAIN=[^[:space:]]+' .env || grep -qE '^API_DOMAIN=.*example\.com' .env; then
+    echo "[deploy] ERROR: API_DOMAIN in .env is missing or still example.com." >&2
+    exit 1
+fi
+if ! grep -qE '^ACME_EMAIL=[^[:space:]]+' .env || grep -qE '^ACME_EMAIL=.*example\.com' .env; then
+    echo "[deploy] ERROR: ACME_EMAIL in .env is missing or still example.com." >&2
+    exit 1
+fi
 
 if [[ -d "${PARSERS_DIR}/.git" ]]; then
     echo "[deploy] pulling medservice_parsers"
