@@ -84,3 +84,6 @@ BUGS.MD
 
 # One-shot / dev scripts (name starts with underscore in repo root)
 /_*.py
+
+# Внутренние доки не коммитим (README остаётся затрекканным — ignore его не трогает)
+*.md
