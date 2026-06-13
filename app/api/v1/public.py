@@ -265,6 +265,14 @@ def submit_rating(token: str, payload: RatingRequest, db: Session = Depends(get_
         raise HTTPException(status_code=422, detail="Оценка должна быть от 1 до 5")
 
     req = _get_request_by_token(db, token)
+    # Блок повторного прохождения по одной ссылке: если по этому токену уже
+    # оставлена жалоба или подтверждён отзыв — переоценивать нельзя (иначе можно
+    # пройти и путь жалобы, и путь публикации с одной SMS).
+    if req.complaint_id is not None:
+        raise HTTPException(status_code=409, detail="По этой ссылке уже оставлена жалоба")
+    if req.verification_status == "verified":
+        raise HTTPException(status_code=409, detail="По этой ссылке уже подтверждён отзыв")
+
     now = datetime.utcnow()
     if req.opened_at is None:
         req.opened_at = now
@@ -287,6 +295,11 @@ def submit_rating(token: str, payload: RatingRequest, db: Session = Depends(get_
 def submit_complaint(token: str, payload: ComplaintRequest, db: Session = Depends(get_db)):
     """Patient submitted a low-rating complaint — intercepted, never published."""
     req = _get_request_by_token(db, token)
+    # Одна ссылка — одна жалоба. Блокируем дубли и переход с пути отзыва на жалобу.
+    if req.complaint_id is not None:
+        raise HTTPException(status_code=409, detail="По этой ссылке вы уже оставили жалобу")
+    if req.claimed_at is not None:
+        raise HTTPException(status_code=409, detail="По этой ссылке вы уже оставили отзыв")
 
     complaint = Complaint(
         branch_id=req.branch_id,
@@ -374,6 +387,14 @@ def confirm_published(
     `pending` verification; the parse-matcher confirms it asynchronously.
     """
     req = _get_request_by_token(db, token)
+    # Нельзя подтвердить отзыв после жалобы, и нельзя повторно после того, как
+    # отзыв уже подтверждён (промокод выдан) — защита от накрутки. Пока заявка
+    # ещё «pending», повторный POST разрешён: пациент может поправить имя/текст.
+    if req.complaint_id is not None:
+        raise HTTPException(status_code=409, detail="По этой ссылке вы уже оставили жалобу")
+    if req.verification_status == "verified":
+        raise HTTPException(status_code=409, detail="Отзыв по этой ссылке уже подтверждён")
+
     now = datetime.utcnow()
     req.status = RequestStatusEnum.PUBLISHED
     req.published_at = now

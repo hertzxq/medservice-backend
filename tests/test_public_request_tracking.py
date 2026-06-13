@@ -67,3 +67,47 @@ def test_tracking_never_downgrades_published(client, auth_headers):
 def test_opened_unknown_token_returns_404(client):
     response = client.post("/api/v1/public/requests/nope/opened")
     assert response.status_code == 404
+
+
+# ── Блок повторного прохождения по одной ссылке (анти-накрутка) ───────────────
+
+def test_complaint_cannot_be_duplicated(client, auth_headers):
+    _, token = _create_request(client, auth_headers)
+    client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 2})
+    first = client.post(
+        f"/api/v1/public/requests/{token}/complaint", json={"message": "плохо"}
+    )
+    assert first.status_code == 200
+    second = client.post(
+        f"/api/v1/public/requests/{token}/complaint", json={"message": "ещё раз"}
+    )
+    assert second.status_code == 409
+
+
+def test_cannot_publish_after_complaint(client, auth_headers):
+    _, token = _create_request(client, auth_headers)
+    client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 2})
+    client.post(f"/api/v1/public/requests/{token}/complaint", json={"message": "плохо"})
+    resp = client.post(f"/api/v1/public/requests/{token}/published", json={})
+    assert resp.status_code == 409
+
+
+def test_cannot_complain_after_publish(client, auth_headers):
+    _, token = _create_request(client, auth_headers)
+    client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 5})
+    assert (
+        client.post(f"/api/v1/public/requests/{token}/published", json={}).status_code
+        == 200
+    )
+    resp = client.post(
+        f"/api/v1/public/requests/{token}/complaint", json={"message": "плохо"}
+    )
+    assert resp.status_code == 409
+
+
+def test_cannot_rerate_after_complaint(client, auth_headers):
+    _, token = _create_request(client, auth_headers)
+    client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 2})
+    client.post(f"/api/v1/public/requests/{token}/complaint", json={"message": "плохо"})
+    resp = client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 5})
+    assert resp.status_code == 409
