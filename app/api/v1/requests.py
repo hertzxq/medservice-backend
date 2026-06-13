@@ -108,8 +108,15 @@ def get_requests(
         
         if req.review:
             req_dict["rating"] = req.review.rating
-            req_dict["platform"] = req.review.platform.value if req.review.platform else None
-            req_dict["review_url"] = req.review.external_url
+            platform = req.review.platform.value if req.review.platform else None
+            req_dict["platform"] = platform
+            # Парсеры не сохраняют прямую ссылку на конкретный отзыв (external_url
+            # обычно пуст), поэтому если её нет — ведём «Читать отзыв» на страницу
+            # отзывов клиники на площадке (platform_urls филиала).
+            review_url = req.review.external_url
+            if not review_url and platform and req.branch:
+                review_url = (req.branch.platform_urls or {}).get(platform)
+            req_dict["review_url"] = review_url
         elif req.complaint:
             req_dict["rating"] = req.complaint.rating
             req_dict["platform"] = "complaint"
