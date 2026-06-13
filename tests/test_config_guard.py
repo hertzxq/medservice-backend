@@ -55,3 +55,10 @@ def test_claim_date_window_enforced_by_default():
     # ослабление допустимо только явной строкой в .env (см. review_match.py).
     s = _make()
     assert s.enforce_claim_date_window is True
+
+
+def test_name_only_verification_off_by_default():
+    # По умолчанию для подтверждения нужен текст отзыва (имя публично).
+    # Ослабление до «достаточно имени» включается только явно в .env.
+    s = _make()
+    assert s.allow_name_only_verification is False

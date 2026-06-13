@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     # заявка может присвоить любой старый отзыв с совпавшим текстом.
     enforce_claim_date_window: bool = True
 
+    # Верификация по ОДНОМУ имени (без текста отзыва). Дефолт False = текст
+    # обязателен (имена публичны, по имени можно присвоить чужой отзыв). True
+    # ослабляет проверку: совпадения имени достаточно для подтверждения —
+    # включать осознанно, это упрощает пациенту, но снижает защиту от подлога.
+    allow_name_only_verification: bool = False
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",

@@ -99,12 +99,14 @@ def _score(req: Request, rev: Review, claimed_at: datetime) -> float:
         if pub < lower or pub > upper:
             return 0.0
     score = 0.0
-    # Name alone is a WEAK signal: reviewer names are PUBLICLY visible on the
-    # platforms (Yandex/2GIS/Google), so a third party who never left a review
-    # can copy any genuine reviewer's first name. A name-only claim must NOT
-    # reach MATCH_THRESHOLD on its own — it only corroborates a text match.
+    # Name alone is normally a WEAK signal: reviewer names are PUBLICLY visible on
+    # the platforms (Yandex/2GIS/Google), so a third party who never left a review
+    # can copy any genuine reviewer's first name — by default a name-only claim
+    # must NOT reach MATCH_THRESHOLD on its own; it only corroborates a text match.
+    # When allow_name_only_verification is on, a name match is treated as
+    # sufficient (clears the threshold) — easier for patients, weaker anti-forgery.
     if _name_matches(req.review_claim_name, req.client_name, rev.reviewer_name):
-        score += 0.3
+        score += MATCH_THRESHOLD if settings.allow_name_only_verification else 0.3
     text_ov = _text_overlap(req.review_claim_text, rev.text)
     # Review TEXT is the verifying signal: a patient who pasted (part of) their
     # own review demonstrates knowledge a name-copier doesn't reliably have.
