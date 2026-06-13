@@ -66,6 +66,46 @@ def test_user_can_still_access_assigned_branch(client, user_auth_headers):
     assert client.get("/api/v1/analytics/1", headers=user_auth_headers).status_code == 200
 
 
+def test_manager_can_update_own_branch_identity(client, user_auth_headers):
+    # Витрину своего филиала (название/город/логотип для пациентов) менеджер
+    # может редактировать — в отличие от полного PATCH /branches/{id}.
+    logo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="
+    resp = client.patch(
+        "/api/v1/branches/1/identity",
+        json={"city": "Москва", "logoUrl": logo},
+        headers=user_auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["city"] == "Москва"
+    assert body["logoUrl"] == logo
+
+    # И логотип теперь виден пациенту в mini (публичный эндпоинт, без авторизации).
+    mini = client.get("/api/v1/public/branches/1/mini").json()
+    assert mini["branch"]["logoUrl"] == logo
+
+
+def test_manager_cannot_update_foreign_branch_identity(client, auth_headers, user_auth_headers):
+    bid = _create_unassigned_branch(client, auth_headers)
+    resp = client.patch(
+        f"/api/v1/branches/{bid}/identity",
+        json={"city": "Москва"},
+        headers=user_auth_headers,
+    )
+    assert resp.status_code == 404  # чужой филиал не раскрываем
+
+
+def test_full_branch_patch_stays_superuser_only(client, user_auth_headers):
+    # Узкий identity-эндпоинт не должен открыть служебные поля: полный PATCH
+    # (платёжка/активность/настройки) остаётся за суперадмином.
+    resp = client.patch(
+        "/api/v1/branches/1",
+        json={"is_active": False},
+        headers=user_auth_headers,
+    )
+    assert resp.status_code == 403
+
+
 def test_admin_can_assign_branches_to_new_user(client, auth_headers):
     # Create a manager with access to ONLY branch 1, then confirm scoping.
     created = client.post(

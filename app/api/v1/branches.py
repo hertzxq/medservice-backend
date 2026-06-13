@@ -11,11 +11,18 @@ from app.core.dependencies import (
     accessible_branch_ids,
     get_current_user,
     get_current_superuser,
+    require_branch_access,
 )
 from app.models.employee import Employee
 from app.models.user import User
 from app.models.branch import Branch
-from app.schemas.branch import BranchCreate, BranchesListResponse, BranchResponse, BranchUpdate
+from app.schemas.branch import (
+    BranchCreate,
+    BranchesListResponse,
+    BranchIdentityUpdate,
+    BranchResponse,
+    BranchUpdate,
+)
 
 router = APIRouter(prefix="/branches")
 
@@ -112,6 +119,37 @@ async def update_branch(
     db.commit()
     db.refresh(branch)
 
+    return BranchResponse.model_validate(branch)
+
+
+@router.patch("/{branch_id}/identity", response_model=BranchResponse)
+async def update_branch_identity(
+    branch_id: int,
+    payload: BranchIdentityUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Обновить витрину филиала для пациентов: название, город, логотип.
+
+    Доступно менеджеру филиала (в рамках его доступов) — в отличие от полного
+    PATCH /branches/{id}, который меняет платёжный статус/активность/настройки
+    парсинга и остаётся за суперадмином. Так менеджер редактирует только то, что
+    видит пациент в mini, и не может тронуть служебные поля филиала.
+    """
+    require_branch_access(branch_id, current_user, db)
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Филиал не найден",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(branch, key, value)
+
+    db.commit()
+    db.refresh(branch)
     return BranchResponse.model_validate(branch)
 
 

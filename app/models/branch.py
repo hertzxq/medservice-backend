@@ -3,7 +3,7 @@ Branch model for clinic branches/locations.
 """
 
 from sqlalchemy import (
-    Boolean, Column, Date, Integer, String, Float, DateTime, JSON, ForeignKey, Table,
+    Boolean, Column, Date, Integer, String, Text, Float, DateTime, JSON, ForeignKey, Table,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -57,6 +57,9 @@ class Branch(Base):
     address = Column(String, nullable=True)
     city = Column(String, nullable=True)
     phone = Column(String, nullable=True)
+    # Логотип, который видит пациент в mini (плитка филиала). Хранится inline как
+    # base64 data URL (PNG ≤150 КБ) — отдельного файлового хранилища нет.
+    logo_url = Column(Text, nullable=True)
     
     # Настройки филиала
     timezone = Column(String, default="Московское время - UTC +3")

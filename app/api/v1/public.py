@@ -209,7 +209,7 @@ def get_branch_mini(branch_id: int, db: Session = Depends(get_db)):
             id=branch.id,
             public_name=branch.name,
             public_city=branch.city,
-            logo_url=None,
+            logo_url=branch.logo_url,
             website_url=website,
         ),
         branch_bonuses=branch_bonuses,

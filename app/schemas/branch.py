@@ -17,6 +17,7 @@ class BranchResponse(APIModel):
     address: str | None
     city: str | None
     phone: str | None
+    logo_url: str | None = None
     timezone: str
     specialization: str
     request_frequency_days: int
@@ -42,6 +43,7 @@ class BranchUpdate(APIModel):
     address: str | None = None
     city: str | None = None
     phone: str | None = None
+    logo_url: str | None = None
     timezone: str | None = None
     specialization: str | None = None
     request_frequency_days: int | None = None
@@ -53,6 +55,18 @@ class BranchUpdate(APIModel):
     sms_monthly_limit: int | None = None
     is_active: bool | None = None
     paid_until: datetime.date | None = None
+
+
+class BranchIdentityUpdate(APIModel):
+    """Patient-facing storefront fields a branch manager may edit.
+
+    Narrow on purpose: only what the patient sees in the mini (name/city/logo).
+    Everything else on a branch stays behind the superuser-only BranchUpdate.
+    """
+
+    name: str | None = None
+    city: str | None = None
+    logo_url: str | None = None
 
 
 class BranchCreate(APIModel):
