@@ -48,3 +48,10 @@ def test_non_production_allows_weak_secret():
     # Dev/test are exempt so local runs and the test suite keep working.
     s = _make(environment="development", secret_key="test-secret-key", debug=True)
     assert s.environment == "development"
+
+
+def test_claim_date_window_enforced_by_default():
+    # Антифрод верификации отзывов не должен быть выключен «из коробки»:
+    # ослабление допустимо только явной строкой в .env (см. review_match.py).
+    s = _make()
+    assert s.enforce_claim_date_window is True

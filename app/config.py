@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # patients never see invented offers/promo codes the clinic won't honor.
     allow_demo_bonuses: bool = False
 
+    # Антифрод верификации отзывов: отзыв должен быть опубликован ПОСЛЕ создания
+    # запроса (см. app/services/review_match.py). Дефолт True = защита включена.
+    # False допустим ТОЛЬКО временно для тестов по историческим отзывам — тогда
+    # заявка может присвоить любой старый отзыв с совпавшим текстом.
+    enforce_claim_date_window: bool = True
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",

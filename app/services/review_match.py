@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.request import Request
 from app.models.review import Review
 
@@ -35,14 +36,11 @@ FUTURE_SKEW = timedelta(days=1)   # ...or a bit in the future vs our clock
 FALLBACK_LOOKBACK = timedelta(days=60)
 MATCH_THRESHOLD = 0.6  # at least one strong signal (name or text)
 
-# ┌───────────────────────────────────────────────────────────────────────────┐
-# │ TODO ВЕРНУТЬ ПЕРЕД РЕАЛЬНЫМ ЗАПУСКОМ: поставить True.                     │
-# │ Антифрод «отзыв опубликован ПОСЛЕ создания запроса» временно отключён     │
-# │ (2026-06-13, по просьбе заказчика) — чтобы тестировать верификацию на     │
-# │ проде по уже существующим отзывам. Пока False, заявка может присвоить     │
-# │ ЛЮБОЙ исторический отзыв с подходящим именем/текстом.                     │
-# └───────────────────────────────────────────────────────────────────────────┘
-ENFORCE_CLAIM_DATE_WINDOW = False
+# Антифрод «отзыв опубликован ПОСЛЕ создания запроса» управляется настройкой
+# ENFORCE_CLAIM_DATE_WINDOW (app/config.py, дефолт True = включён). Для тестов
+# по историческим отзывам её временно выключают строкой в .env:
+#   ENFORCE_CLAIM_DATE_WINDOW=False   # TODO УБРАТЬ перед реальным запуском
+# Пока выключена, заявка может присвоить ЛЮБОЙ старый отзыв с совпавшим текстом.
 
 
 def _norm(s: str | None) -> str:
@@ -94,7 +92,7 @@ def _score(req: Request, rev: Review, claimed_at: datetime) -> float:
     # (and not in the future). A review predating the request can't be a
     # response to it — that's the anti-fraud guard.
     pub = _naive(rev.published_at)
-    if ENFORCE_CLAIM_DATE_WINDOW and pub is not None:
+    if settings.enforce_claim_date_window and pub is not None:
         sent = _naive(req.sent_at)
         lower = (sent - SENT_SKEW) if sent else (claimed_at - FALLBACK_LOOKBACK)
         upper = datetime.utcnow() + FUTURE_SKEW
