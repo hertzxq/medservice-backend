@@ -166,3 +166,92 @@ def test_get_requests_nonexistent_branch_returns_empty(client, auth_headers):
 
     assert response.status_code == 200
     assert response.json()["total"] == 0
+
+
+# ── Monthly usage («X из Y» counter) ─────────────────────────────────────────
+
+
+def test_request_usage_returns_limit_and_count(client, auth_headers):
+    response = client.get("/api/v1/requests/usage?branchId=1", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "sentThisMonth" in data
+    assert data["limit"] == 150  # default tariff (sms_monthly_limit)
+
+
+def test_request_usage_increments_after_create(client, auth_headers):
+    before = client.get(
+        "/api/v1/requests/usage?branchId=1", headers=auth_headers
+    ).json()["sentThisMonth"]
+
+    created = client.post(
+        "/api/v1/requests",
+        headers=auth_headers,
+        json={
+            "branchId": 1,
+            "clientName": "Счётчик Тест",
+            "clientPhone": "+79993334444",
+        },
+    )
+    assert created.status_code == 201
+
+    after = client.get(
+        "/api/v1/requests/usage?branchId=1", headers=auth_headers
+    ).json()["sentThisMonth"]
+    assert after == before + 1
+
+
+def test_request_usage_forbidden_for_unassigned_branch(client, user_auth_headers):
+    # A non-superuser may not read usage for a branch they don't have access to.
+    response = client.get(
+        "/api/v1/requests/usage?branchId=9999", headers=user_auth_headers
+    )
+    assert response.status_code == 404
+
+
+# ── «Читать отзыв» появляется сразу после публикации (до парс-матча) ──────────
+
+
+def test_published_claim_exposes_platform_and_read_link_before_match(
+    client, auth_headers
+):
+    # Площадка для филиала настроена (это и есть цель кнопки «Читать отзыв»).
+    client.patch(
+        "/api/v1/branches/1",
+        headers=auth_headers,
+        json={"platformUrls": {"yandex_maps": "https://yandex.ru/maps/org/123"}},
+    )
+
+    created = client.post(
+        "/api/v1/requests",
+        headers=auth_headers,
+        json={
+            "branchId": 1,
+            "clientName": "Публикатор",
+            "clientPhone": "+79995556677",
+        },
+    )
+    rid = created.json()["id"]
+    token = created.json()["requestLink"].rstrip("/").split("/")[-1]
+
+    client.post(f"/api/v1/public/requests/{token}/rating", json={"rating": 5})
+    pub = client.post(
+        f"/api/v1/public/requests/{token}/published",
+        json={
+            "platform": "yandex_maps",
+            "reviewerName": "Публикатор",
+            "reviewText": "Всё понравилось",
+        },
+    )
+    assert pub.status_code == 200
+
+    # В списке заявок строка уже отдаёт площадку и ссылку, хотя распарсенный
+    # Review ещё не сматчен (verification pending).
+    data = client.get(
+        "/api/v1/requests?branchId=1&limit=100", headers=auth_headers
+    ).json()
+    row = next(r for r in data["requests"] if r["id"] == rid)
+    assert row["status"] == "published"
+    assert row["platform"] == "yandex_maps"
+    assert row["reviewUrl"] == "https://yandex.ru/maps/org/123"

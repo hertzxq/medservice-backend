@@ -161,3 +161,41 @@ def test_non_superuser_can_read_data(client, user_auth_headers):
     assert client.get("/api/v1/complaints?branchId=1", headers=user_auth_headers).status_code == 200
     assert client.get("/api/v1/requests?branchId=1", headers=user_auth_headers).status_code == 200
     assert client.get("/api/v1/blacklist?branch_id=1", headers=user_auth_headers).status_code == 200
+
+
+# ── Роль в команде меняет только суперпользователь (PATCH /auth/me) ───────────
+
+def test_non_superuser_cannot_change_own_role(client, user_auth_headers):
+    """Обычный пользователь видит свою роль, но не может её изменить через профиль."""
+    before = client.get("/api/v1/auth/me", headers=user_auth_headers).json()
+    response = client.patch(
+        "/api/v1/auth/me",
+        json={"role": "Главный врач"},
+        headers=user_auth_headers,
+    )
+    assert response.status_code == 200
+    # Роль из payload игнорируется — остаётся прежней.
+    assert response.json()["role"] == before["role"]
+
+
+def test_non_superuser_can_still_edit_own_profile(client, user_auth_headers):
+    """Запрет касается только роли — имя/телефон обычный юзер меняет сам."""
+    response = client.patch(
+        "/api/v1/auth/me",
+        json={"fullName": "Новое Имя", "phone": "+79990001122"},
+        headers=user_auth_headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["fullName"] == "Новое Имя"
+    assert body["phone"] == "+79990001122"
+
+
+def test_superuser_can_change_own_role(client, auth_headers):
+    response = client.patch(
+        "/api/v1/auth/me",
+        json={"role": "Администратор"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["role"] == "Администратор"

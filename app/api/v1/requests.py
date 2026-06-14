@@ -24,6 +24,7 @@ from app.schemas.request import (
     RequestResponse,
     RequestCreateRequest,
     RequestCreateResponse,
+    RequestUsageResponse,
     SmsResult,
     TestSmsRequest,
 )
@@ -120,10 +121,44 @@ def get_requests(
         elif req.complaint:
             req_dict["rating"] = req.complaint.rating
             req_dict["platform"] = "complaint"
-            
+        elif req.claimed_platform:
+            # Отзыв опубликован пациентом, но ещё НЕ сматчен с распарсенным Review
+            # (парсинг асинхронный и на сервере может не отработать). Площадку
+            # берём из заявки, а ссылку «Читать отзыв» — со страницы клиники на
+            # площадке (platform_urls), чтобы кнопка появлялась сразу, а не только
+            # после успешного парс-матча.
+            req_dict["platform"] = req.claimed_platform
+            req_dict["rating"] = req.rating
+            if req.branch:
+                req_dict["review_url"] = (req.branch.platform_urls or {}).get(
+                    req.claimed_platform
+                )
+
         response_requests.append(RequestResponse(**req_dict))
 
     return RequestsListResponse(requests=response_requests, total=total)
+
+
+@router.get("/usage", response_model=RequestUsageResponse)
+def get_request_usage(
+    branch_id: int = Query(..., alias="branchId"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Monthly request-quota usage for a branch: sent-this-month / tariff limit.
+
+    The limit is the branch's `sms_monthly_limit` (the «тариф» set in admin) —
+    the same value the create endpoint enforces — so the «X из Y» counter in the
+    cabinet matches what actually blocks sending.
+    """
+    require_branch_access(branch_id, current_user, db)
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Филиал не найден")
+    return RequestUsageResponse(
+        sent_this_month=_sent_this_month(db, branch_id),
+        limit=branch.sms_monthly_limit or 0,
+    )
 
 
 @router.post("", response_model=RequestCreateResponse, status_code=201)
@@ -180,16 +215,15 @@ def create_request(
     link = build_review_link(branch.id, token)
 
     # Send the review-request SMS (best-effort; failure never blocks creation).
+    # Тариф (`sms_monthly_limit`) — психологический ориентир, а НЕ жёсткий лимит:
+    # превышение ничего не блокирует, отправка продолжается как обычно (по просьбе
+    # заказчика). Счётчик «X из Y» в кабинете остаётся только индикатором.
     if not branch.sms_enabled:
         sms = SmsResult(ok=False, skipped_reason="SMS-рассылка отключена для филиала")
     else:
-        limit = branch.sms_monthly_limit or 0
-        if limit and _sent_this_month(db, branch.id) > limit:
-            sms = SmsResult(ok=False, skipped_reason=f"Достигнут месячный лимит ({limit})")
-        else:
-            sms = _sms_result_from_raw(
-                send_sms(new_request.client_phone, render_template(branch.sms_template, link))
-            )
+        sms = _sms_result_from_raw(
+            send_sms(new_request.client_phone, render_template(branch.sms_template, link))
+        )
 
     response = RequestCreateResponse.model_validate(new_request)
     response.request_link = link  # return the full URL, not the bare token

@@ -57,22 +57,25 @@ def test_get_branch_dashboard_returns_extended_metrics(client, auth_headers):
     assert len(data["npsLarge"]) == 30
     assert data["employees"] == []
 
-    # Лента отзывов показывает только негатив (оценка <= 3); в 30-дневном
-    # периоде у филиала 1 есть лишь 5-звёздочный отзыв — лента пуста.
-    assert data["recentReviews"] == []
+    # Лента отзывов показывает последние отзывы (все оценки); в 30-дневном
+    # периоде у филиала 1 есть один 5-звёздочный отзыв — он и в ленте.
+    assert len(data["recentReviews"]) == 1
+    assert data["recentReviews"][0]["rating"] == 5
 
 
-def test_get_branch_dashboard_recent_reviews_only_negative(client, auth_headers):
+def test_get_branch_dashboard_recent_reviews_shows_all_latest(client, auth_headers):
     response = client.get("/api/v1/analytics/1/dashboard?period=90", headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
 
-    # За 90 дней у филиала 1 два отзыва (5★ и 3★) — в ленту попадает только 3★.
+    # За 90 дней у филиала 1 два отзыва (5★ и 3★) — лента показывает оба,
+    # последний по дате публикации сверху (5★ опубликован позже 3★).
     assert data["reviews"] == 2
-    assert len(data["recentReviews"]) == 1
-    assert data["recentReviews"][0]["rating"] == 3
-    assert data["recentReviews"][0]["platformLabel"] == "Google Maps"
+    assert len(data["recentReviews"]) == 2
+    assert data["recentReviews"][0]["rating"] == 5
+    assert data["recentReviews"][1]["rating"] == 3
+    assert data["recentReviews"][1]["platformLabel"] == "Google Maps"
 
 
 def test_to_utc_naive_converts_offset_aware_datetime():

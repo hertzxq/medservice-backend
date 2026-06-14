@@ -505,10 +505,8 @@ def get_branch_analytics_dashboard(
     nps_large = build_nps_series(period_reviews, start_date, end_date, points=30)
     employees = build_employee_rows(period_reviews)
 
-    # Правая колонка дашборда показывает только негатив (оценка <= 3).
-    negative_reviews = [
-        review for review in period_reviews if is_detractor(review.rating)
-    ]
+    # Правая колонка дашборда показывает последние отзывы (все оценки).
+    # period_reviews уже отсортированы по published_at убыванию.
     recent_reviews = [
         AnalyticsReviewFeedItem(
             id=review.id,
@@ -519,7 +517,7 @@ def get_branch_analytics_dashboard(
             platform_label=PLATFORM_LABELS.get(review.platform, "Другое"),
             published_at=review.published_at,
         )
-        for review in negative_reviews[:12]
+        for review in period_reviews[:12]
     ]
 
     return AnalyticsDashboardResponse(

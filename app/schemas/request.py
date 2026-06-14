@@ -41,6 +41,13 @@ class RequestsListResponse(APIModel):
     total: int
 
 
+class RequestUsageResponse(APIModel):
+    """Monthly request-quota usage for a branch — drives the «X из Y» counter."""
+
+    sent_this_month: int
+    limit: int
+
+
 class RequestCreateRequest(APIModel):
     """Schema for creating new feedback request."""
 

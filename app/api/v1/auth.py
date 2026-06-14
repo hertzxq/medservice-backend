@@ -122,6 +122,11 @@ async def update_me(
 
     new_password = update_data.pop("password", None)
 
+    # Роль в команде назначает только суперпользователь (админка «Доступы»).
+    # Обычный пользователь видит свою роль, но изменить её через профиль не может.
+    if not current_user.is_superuser:
+        update_data.pop("role", None)
+
     new_email = update_data.get("email")
     if new_email and new_email != current_user.email:
         taken = (
