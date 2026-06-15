@@ -101,6 +101,7 @@ async def run_parser(url: str, headless: bool = True) -> ParseResult:
             date=data.get("date", ""),
             text=data.get("text", ""),
             response=data.get("response"),
+            url=data.get("url"),
             pros=data.get("pros"),
             cons=data.get("cons"),
         ))

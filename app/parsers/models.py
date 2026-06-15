@@ -18,6 +18,9 @@ class ParsedReview(BaseModel):
     date: str = Field(default="")
     text: str = Field(default="")
     response: str | None = Field(default=None)
+    # Direct permalink to this specific review on the platform (when the parser
+    # can build one). Stored as Review.external_url → «Читать отзыв» deep-links.
+    url: str | None = Field(default=None)
     # Prodoctorov-specific extra fields (merged into text when saving)
     pros: str | None = Field(default=None)
     cons: str | None = Field(default=None)

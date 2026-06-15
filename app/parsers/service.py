@@ -82,6 +82,10 @@ def save_parse_result(
         existing = existing.first()
 
         if existing:
+            # Backfill the permalink onto an already-stored review so previously
+            # parsed reviews also gain a «Читать отзыв» deep-link on re-scrape.
+            if getattr(r, "url", None) and not existing.external_url:
+                existing.external_url = r.url
             skipped += 1
             continue
 
@@ -93,6 +97,7 @@ def save_parse_result(
             platform=platform_enum,
             published_at=published_at,
             response_text=r.response,
+            external_url=getattr(r, "url", None) or None,
         )
         db.add(review)
         inserted += 1
