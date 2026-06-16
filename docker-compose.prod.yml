@@ -71,6 +71,40 @@ services:
         done
     restart: unless-stopped
 
+  # Analytics refresh: full re-scrape of ALL branches with platform URLs (not
+  # just those with pending claims). The dashboard numbers (new/total reviews,
+  # ratings) are computed from the `reviews` table, which only updates on scrape;
+  # without this a branch nobody verified against never re-parses and its
+  # analytics freeze. A full scrape is heavy (playwright/headful per platform per
+  # branch), so it runs daily by default — far rarer than the 30-min verify loop.
+  refresh:
+    image: medservice-backend:prod
+    container_name: medservice_refresh
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    # Override the API entrypoint: run the full scrape+match loop over all branches.
+    entrypoint: []
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "[refresh] analytics scheduler started (every ${REFRESH_INTERVAL_SECONDS:-86400}s)";
+        # Stagger after the verify loop so the two don't scrape the same branch at once.
+        sleep 300;
+        while true; do
+          python scripts/verify_reviews.py --scrape --all || echo "[refresh] run failed (will retry)";
+          sleep "${REFRESH_INTERVAL_SECONDS:-86400}";
+        done
+    restart: unless-stopped
+
   # TLS для API на этом же сервере (между серверами нет приватной сети, поэтому
   # токены/телефоны не должны ходить открытым HTTP). DNS API_DOMAIN -> этот хост.
   caddy:

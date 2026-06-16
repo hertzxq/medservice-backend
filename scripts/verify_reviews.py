@@ -22,8 +22,14 @@ Run manually or from cron, e.g. every 30 min.
   Dockerized prod (parsers venv + xvfb + chrome are baked into the image):
     */30 * * * * docker exec medservice_backend python scripts/verify_reviews.py --scrape
 
+By default only branches with *pending* claims are processed. Pass --all to
+re-scrape every branch that has platform URLs — this keeps the analytics
+dashboard (new/total reviews, ratings, computed from the `reviews` table) fresh
+even for branches nobody has verified against. The full scrape is heavy, so run
+--all far less often (e.g. daily) than the pending-only loop (e.g. every 30 min).
+
 Usage:
-    python scripts/verify_reviews.py [--branch N] [--scrape] [--stale-days 14]
+    python scripts/verify_reviews.py [--branch N | --all] [--scrape] [--stale-days 14]
 """
 
 import argparse
@@ -83,6 +89,19 @@ def _branches_with_pending(db) -> list[int]:
         .all()
     )
     return [r[0] for r in rows]
+
+
+def _all_branches_with_platforms(db) -> list[int]:
+    """Every branch that has at least one non-empty platform URL.
+
+    Used by the daily analytics refresh (`--all`): the dashboard numbers
+    (new/total reviews, ratings) come straight from the `reviews` table, which
+    only updates on scrape. The verification loop scrapes *pending* branches
+    only, so without this a branch nobody verified against never re-parses and
+    its analytics freeze.
+    """
+    rows = db.query(Branch.id, Branch.platform_urls).order_by(Branch.id).all()
+    return [bid for bid, urls in rows if urls and any((urls or {}).values())]
 
 
 def _build_parse_result(data: dict, url: str, platform: str):
@@ -186,6 +205,8 @@ def _scrape_branch(branch_id: int, only_platform: str | None = None) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Verify patient review publish-claims.")
     ap.add_argument("--branch", type=int, default=None, help="Only this branch id.")
+    ap.add_argument("--all", action="store_true", dest="all_branches",
+                    help="All branches with platform URLs (analytics refresh), not just pending.")
     ap.add_argument("--scrape", action="store_true", help="Re-parse platforms first (slow).")
     ap.add_argument("--platform", default=None,
                     help="With --scrape, limit to one platform (e.g. yandex_maps).")
@@ -194,9 +215,15 @@ def main() -> int:
 
     db = SessionLocal()
     try:
-        branch_ids = [args.branch] if args.branch else _branches_with_pending(db)
+        if args.branch:
+            branch_ids = [args.branch]
+        elif args.all_branches:
+            branch_ids = _all_branches_with_platforms(db)
+        else:
+            branch_ids = _branches_with_pending(db)
         if not branch_ids:
-            print("Нет филиалов с pending-заявками. Нечего проверять.")
+            scope = "филиалов с площадками" if args.all_branches else "филиалов с pending-заявками"
+            print(f"Нет {scope}. Нечего проверять.")
             return 0
 
         print(f"Проверяю заявки в филиалах: {branch_ids}")
