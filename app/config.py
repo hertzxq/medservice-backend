@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    password_reset_token_expire_minutes: int = 60
+    frontend_public_url: str = "http://localhost:3000"
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
@@ -57,6 +59,12 @@ class Settings(BaseSettings):
     sms_test_mode: bool = True
     sms_sender: str | None = None
     mini_public_url: str = "http://localhost:5173"
+
+    # Email (Unisender)
+    unisender_api_key: str | None = None
+    unisender_sender_email: str | None = None
+    unisender_sender_name: str = "MedService"
+    unisender_list_id: str | None = None
 
     # When True, the patient mini falls back to fabricated demo bonuses/FAQ for
     # branches with no published catalog. MUST stay False in production so real

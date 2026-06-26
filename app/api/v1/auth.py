@@ -2,22 +2,36 @@
 Authentication endpoints: login, forgot-password, me.
 """
 
+import logging
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, get_password_hash
+from app.core.security import (
+    create_access_token,
+    create_password_reset_token,
+    decode_password_reset_token,
+    get_password_hash,
+    verify_password,
+    verify_password_reset_token_fingerprint,
+)
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     ForgotPasswordRequest,
+    ResetPasswordRequest,
     UserResponse,
     UserUpdate,
 )
+from app.services.email import send_password_reset_email
 
 router = APIRouter(prefix="/auth")
+logger = logging.getLogger(__name__)
 
 # Precomputed hash to verify against when the username doesn't exist, so the
 # response time of a missing user matches that of a wrong password — closing
@@ -75,8 +89,6 @@ async def forgot_password(
 ):
     """
     Send password reset link to user's email.
-
-    ⚠️ ЗАГЛУШКА: Email НЕ отправляется реально, только mock ответ.
     Всегда возвращает 200 OK, чтобы предотвратить перечисление пользователей.
 
     Args:
@@ -89,12 +101,60 @@ async def forgot_password(
     # Проверяем пользователя, но НЕ раскрываем существование email
     user = db.query(User).filter(User.email == request.email).first()
 
-    if user:
-        # TODO: Отправить email с ссылкой для восстановления
-        pass
+    if user and user.is_active:
+        token = create_password_reset_token(user.id, user.hashed_password)
+        query = urlencode({"token": token})
+        reset_link = f"{settings.frontend_public_url.rstrip('/')}/reset-password?{query}"
+        result = send_password_reset_email(to_email=user.email, reset_link=reset_link)
+        if not result.get("ok"):
+            logger.warning(
+                "Password reset email was not sent for user_id=%s: %s",
+                user.id,
+                result.get("error"),
+            )
 
     # Всегда возвращаем одинаковый ответ (предотвращение user enumeration)
     return {"message": "Если указанный email зарегистрирован, на него отправлена ссылка для восстановления пароля"}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest, db: Session = Depends(get_db)
+):
+    """Set a new password using a valid password reset token."""
+    payload = decode_password_reset_token(request.token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Недействительная или просроченная ссылка восстановления",
+        )
+
+    try:
+        user_id = int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Недействительная или просроченная ссылка восстановления",
+        ) from None
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if (
+        not user
+        or not user.is_active
+        or not verify_password_reset_token_fingerprint(
+            payload.get("pwd"),
+            user.hashed_password,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Недействительная или просроченная ссылка восстановления",
+        )
+
+    user.hashed_password = get_password_hash(request.password)
+    db.commit()
+
+    return {"message": "Пароль обновлён"}
 
 
 @router.get("/me", response_model=UserResponse)
